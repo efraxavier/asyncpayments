@@ -19,17 +19,25 @@ import java.util.List;
 @Entity
 @Table(name = "users")
 public class User implements UserDetails {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     @Column(unique = true)
     private String email;
-    
+
     private String password;
 
     private UserRole role;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "conta_sincrona_id", referencedColumnName = "id")
+    private ContaSincrona contaSincrona;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "conta_assincrona_id", referencedColumnName = "id")
+    private ContaAssincrona contaAssincrona;
 
     public User(String email, String password, UserRole role) {
         this.email = email;

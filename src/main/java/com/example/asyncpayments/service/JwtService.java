@@ -25,11 +25,12 @@ public class JwtService {
     }
 
     /**
-     * Generates a token for the given UserDetails.
+     * Generates a token for the given UserDetails, including the user ID as a claim.
      */
-    public String generateToken(UserDetails userDetails) {
+    public String generateToken(UserDetails userDetails, Long userId) {
         return JWT.create()
                 .withSubject(userDetails.getUsername())
+                .withClaim("id", userId) // Adiciona o ID do usuário como claim
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + jwtExpiration))
                 .sign(getAlgorithm());
@@ -52,6 +53,13 @@ public class JwtService {
      */
     public String extractUsername(String token) {
         return decodeToken(token).getSubject();
+    }
+
+    /**
+     * Extracts the user ID from the token.
+     */
+    public Long extractUserId(String token) {
+        return decodeToken(token).getClaim("id").asLong();
     }
 
     /**

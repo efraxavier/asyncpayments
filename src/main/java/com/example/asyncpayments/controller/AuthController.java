@@ -8,6 +8,7 @@ import com.example.asyncpayments.repository.UserRepository;
 import com.example.asyncpayments.service.JwtService;
 import lombok.RequiredArgsConstructor;
 
+import org.apache.tomcat.util.net.openssl.ciphers.Authentication;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -37,6 +38,22 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse("User registered successfully"));
     }
 
+    @GetMapping("/me/id")
+    public ResponseEntity<Long> getAuthenticatedUserId(org.springframework.security.core.Authentication authentication) {
+    String email = authentication.getName(); // Corrigido para usar getName()
+    User user = repository.findByEmail(email)
+            .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
+    return ResponseEntity.ok(user.getId());
+    }
+
+    // Retorna o ID de outro usuário pelo e-mail
+    @GetMapping("/user/id")
+    public ResponseEntity<Long> getUserIdByEmail(@RequestParam String email) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
+        return ResponseEntity.ok(user.getId());
+    }
+
     @Autowired
     private AuthenticationManager authenticationManager;
 
@@ -48,7 +65,7 @@ public class AuthController {
         // Gere o token JWT usando o UserDetails
         User user = repository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        String token = jwtService.generateToken(user);
+        String token = jwtService.generateToken(user, user.getId());
 
         return ResponseEntity.ok(new AuthResponse(token));
     }
