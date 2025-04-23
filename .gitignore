@@ -1,0 +1,51 @@
+# Arquivos de ajuda
+HELP.md
+
+# Diretórios de build
+target/
+build/
+out/
+
+# Maven Wrapper
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+
+# Configurações de IDEs
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+# Logs
+*.log
+
+# Arquivos temporários do sistema
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Arquivos de configuração locais
+application.properties
+application.yml
+.env
