@@ -1,12 +1,16 @@
 package com.example.asyncpayments.service;
 
-import com.example.asyncpayments.entity.*;
+import com.example.asyncpayments.entity.Transacao;
+import com.example.asyncpayments.entity.Conta;
+import com.example.asyncpayments.entity.TipoTransacao;
+import com.example.asyncpayments.repository.ContaRepository;
 import com.example.asyncpayments.repository.TransacaoRepository;
 import com.example.asyncpayments.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -15,9 +19,11 @@ public class TransacaoService {
 
     private final TransacaoRepository transacaoRepository;
     private final UserRepository userRepository;
+    private final ContaRepository contaRepository;
 
-    public Transacao criarTransacao(Transacao transacao, String emailUsuario) {
-        // Lógica para associar a transação ao usuário autenticado
+    public Transacao criarTransacao(Transacao transacao, String emailUsuarioOrigem) {
+        transacao.setDataCriacao(LocalDateTime.now());
+        transacao.setSincronizada(false); // Por padrão, transações não são sincronizadas
         return transacaoRepository.save(transacao);
     }
 
@@ -28,40 +34,60 @@ public class TransacaoService {
     }
 
     public List<Transacao> listarTransacoes(String emailUsuario) {
-        // Lógica para buscar transações do usuário autenticado
-        return transacaoRepository.findAll();
+        Long idUsuario = buscarIdUsuarioPorEmail(emailUsuario);
+        return transacaoRepository.findByIdUsuarioOrigem(idUsuario);
     }
 
     @Transactional
     public Transacao realizarTransacaoSincrona(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor) {
-        // Buscar usuários
-        User usuarioOrigem = userRepository.findById(idUsuarioOrigem)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário de origem não encontrado"));
-        User usuarioDestino = userRepository.findById(idUsuarioDestino)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário de destino não encontrado"));
+        // Verificar se o valor é válido
+        if (valor <= 0) {
+            throw new IllegalArgumentException("O valor da transação deve ser maior que zero.");
+        }
 
-        // Validar contas
-        ContaSincrona contaOrigem = usuarioOrigem.getContaSincrona();
-        ContaSincrona contaDestino = usuarioDestino.getContaSincrona();
+        // Buscar contas dos usuários
+        Conta contaOrigem = contaRepository.findByIdUsuario(idUsuarioOrigem);
+        Conta contaDestino = contaRepository.findByIdUsuario(idUsuarioDestino);
+
         if (contaOrigem == null || contaDestino == null) {
-            throw new IllegalStateException("Uma ou ambas as contas não existem");
+            throw new IllegalArgumentException("Conta de origem ou destino não encontrada.");
         }
 
-        // Validar saldo suficiente
+        // Verificar saldo suficiente
         if (contaOrigem.getSaldo() < valor) {
-            throw new IllegalArgumentException("Saldo insuficiente na conta de origem");
+            throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
         }
 
-        // Realizar transferência
+        // Atualizar saldos
         contaOrigem.setSaldo(contaOrigem.getSaldo() - valor);
         contaDestino.setSaldo(contaDestino.getSaldo() + valor);
 
-        // Criar transação
-        Transacao transacao = new Transacao();
-        transacao.setValor(valor);
-        transacao.setStatus(StatusTransacao.CONCLUIDA);
-        transacao.setConta(contaOrigem);
+        // Salvar alterações nas contas
+        contaRepository.save(contaOrigem);
+        contaRepository.save(contaDestino);
 
+        // Criar e salvar a transação
+        Transacao transacao = new Transacao();
+        transacao.setIdUsuarioOrigem(idUsuarioOrigem);
+        transacao.setIdUsuarioDestino(idUsuarioDestino);
+        transacao.setValor(valor);
+        transacao.setTipoTransacao(TipoTransacao.SINCRONA);
+        transacao.setDataCriacao(LocalDateTime.now());
+        transacao.setSincronizada(true);
+
+        return transacaoRepository.save(transacao);
+    }
+
+    public Transacao realizarTransacaoAssincrona(String emailUsuarioOrigem, Long idUsuarioDestino, Double valor, String metodoConexao) {
+        // Lógica para transações assíncronas
+        Transacao transacao = new Transacao();
+        transacao.setIdUsuarioOrigem(buscarIdUsuarioPorEmail(emailUsuarioOrigem));
+        transacao.setIdUsuarioDestino(idUsuarioDestino);
+        transacao.setValor(valor);
+        transacao.setTipoTransacao(TipoTransacao.ASSINCRONA);
+        transacao.setMetodoConexao(metodoConexao);
+        transacao.setDataCriacao(LocalDateTime.now());
+        transacao.setSincronizada(false); // Transações assíncronas não são sincronizadas inicialmente
         return transacaoRepository.save(transacao);
     }
 }

@@ -29,9 +29,7 @@ public class TransacaoController {
             @RequestParam Long idUsuarioDestino,
             @RequestParam Double valor,
             Authentication authentication) {
-        String emailUsuarioOrigem = authentication.getName();
-        Long idUsuarioOrigem = transacaoService.buscarIdUsuarioPorEmail(emailUsuarioOrigem);
-
+        Long idUsuarioOrigem = Long.parseLong(authentication.getName());
         Transacao transacao = transacaoService.realizarTransacaoSincrona(idUsuarioOrigem, idUsuarioDestino, valor);
         return ResponseEntity.ok(transacao);
     }
