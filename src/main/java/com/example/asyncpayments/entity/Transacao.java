@@ -41,7 +41,7 @@ public class Transacao {
     private LocalDateTime dataCriacao;
     private LocalDateTime dataAtualizacao;
 
-    private boolean sincronizada; // Indica se a transação assíncrona foi sincronizada
+    private boolean sincronizada; // Indica se a transação foi sincronizada
 
     @PrePersist
     protected void onCreate() {

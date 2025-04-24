@@ -2,8 +2,10 @@ package com.example.asyncpayments.service;
 
 import com.example.asyncpayments.entity.Transacao;
 import com.example.asyncpayments.entity.Conta;
+import com.example.asyncpayments.entity.ContaSincrona;
+import com.example.asyncpayments.entity.TipoConta;
 import com.example.asyncpayments.entity.TipoTransacao;
-import com.example.asyncpayments.repository.ContaRepository;
+import com.example.asyncpayments.repository.ContaSincronaRepository;
 import com.example.asyncpayments.repository.TransacaoRepository;
 import com.example.asyncpayments.repository.UserRepository;
 import jakarta.transaction.Transactional;
@@ -19,7 +21,7 @@ public class TransacaoService {
 
     private final TransacaoRepository transacaoRepository;
     private final UserRepository userRepository;
-    private final ContaRepository contaRepository;
+    private final ContaSincronaRepository contaSincronaRepository;
 
     public Transacao criarTransacao(Transacao transacao, String emailUsuarioOrigem) {
         transacao.setDataCriacao(LocalDateTime.now());
@@ -46,9 +48,9 @@ public class TransacaoService {
         }
 
         // Buscar contas dos usuários
-        Conta contaOrigem = contaRepository.findByIdUsuario(idUsuarioOrigem);
-        Conta contaDestino = contaRepository.findByIdUsuario(idUsuarioDestino);
-
+        Conta contaOrigem = contaSincronaRepository.findByUserId(idUsuarioOrigem);
+        Conta contaDestino = contaSincronaRepository.findByUserId(idUsuarioDestino);
+    
         if (contaOrigem == null || contaDestino == null) {
             throw new IllegalArgumentException("Conta de origem ou destino não encontrada.");
         }
@@ -63,8 +65,12 @@ public class TransacaoService {
         contaDestino.setSaldo(contaDestino.getSaldo() + valor);
 
         // Salvar alterações nas contas
-        contaRepository.save(contaOrigem);
-        contaRepository.save(contaDestino);
+        if (contaOrigem instanceof ContaSincrona && contaDestino instanceof ContaSincrona) {
+            contaSincronaRepository.save((ContaSincrona) contaOrigem);
+            contaSincronaRepository.save((ContaSincrona) contaDestino);
+        } else {
+            throw new IllegalArgumentException("As contas não são do tipo ContaSincrona.");
+        }
 
         // Criar e salvar a transação
         Transacao transacao = new Transacao();
@@ -72,7 +78,7 @@ public class TransacaoService {
         transacao.setIdUsuarioDestino(idUsuarioDestino);
         transacao.setValor(valor);
         transacao.setTipoTransacao(TipoTransacao.SINCRONA);
-        transacao.setDataCriacao(LocalDateTime.now());
+        transacao.setServicoPagamento("Stripe"); // Exemplo de serviço de pagamento
         transacao.setSincronizada(true);
 
         return transacaoRepository.save(transacao);

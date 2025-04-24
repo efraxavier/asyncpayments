@@ -1,40 +1,31 @@
 package com.example.asyncpayments.entity;
 
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Entity
 @Data
-public class Conta {
-
+@NoArgsConstructor
+@MappedSuperclass
+public abstract class Conta {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long idUsuario;
-
+    @Column(nullable = false)
     private Double saldo;
 
-    @Enumerated(EnumType.STRING)
-    private TipoConta tipoConta; // SINCRONA ou ASSINCRONA
+    @OneToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
+    private User user;
 
-    // Construtor padrão para contas síncronas
-    public Conta() {
-        this.saldo = 100.0; // Saldo inicial padrão para contas síncronas
-        this.tipoConta = TipoConta.SINCRONA;
-    }
-
-    // Construtor completo
-    public Conta(Long id, Long idUsuario, Double saldo, TipoConta tipoConta) {
-        this.id = id;
-        this.idUsuario = idUsuario;
+    public Conta(Double saldo, User user) {
         this.saldo = saldo;
-        this.tipoConta = tipoConta;
+        this.user = user;
     }
 
-    public Conta(String someParam) {
-        // Initialize fields or perform actions with someParam
-    }
-
+    public abstract TipoConta getTipoConta();
 }
