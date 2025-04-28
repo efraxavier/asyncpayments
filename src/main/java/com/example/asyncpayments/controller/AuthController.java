@@ -6,6 +6,8 @@ import com.example.asyncpayments.dto.RegisterRequest;
 import com.example.asyncpayments.entity.User;
 import com.example.asyncpayments.repository.UserRepository;
 import com.example.asyncpayments.service.JwtService;
+import com.example.asyncpayments.service.UserService;
+
 import lombok.RequiredArgsConstructor;
 
 import org.apache.tomcat.util.net.openssl.ciphers.Authentication;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final JwtService jwtService;
+    private final UserService userService;
 
     @Autowired
     private UserRepository repository;
@@ -33,7 +36,7 @@ public class AuthController {
         }
 
         String encryptedPassword = new BCryptPasswordEncoder().encode(request.password());
-        User newUser = new User(request.email(), encryptedPassword, request.role());
+        User newUser = userService.criarUsuario(request.email(), encryptedPassword);
         this.repository.save(newUser);
         return ResponseEntity.ok(new AuthResponse("User registered successfully"));
     }

@@ -1,0 +1,18 @@
+package com.example.asyncpayments.dto;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.Data;
+
+@Data
+public class TransacaoRequest {
+    @NotNull(message = "O ID do usuário de origem é obrigatório.")
+    private Long idUsuarioOrigem;
+
+    @NotNull(message = "O ID do usuário de destino é obrigatório.")
+    private Long idUsuarioDestino;
+
+    @NotNull(message = "O valor da transação é obrigatório.")
+    @Positive(message = "O valor da transação deve ser positivo.")
+    private Double valor;
+}

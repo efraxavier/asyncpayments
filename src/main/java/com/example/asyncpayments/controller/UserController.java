@@ -1,5 +1,6 @@
 package com.example.asyncpayments.controller;
 
+import com.example.asyncpayments.dto.UserDTO;
 import com.example.asyncpayments.entity.User;
 import com.example.asyncpayments.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,12 +19,17 @@ public class UserController {
     private final UserRepository userRepository;
 
     @GetMapping("/listar")
-    public ResponseEntity<List<User>> listarUsuariosComContas() {
-        List<User> usuarios = userRepository.findAll();
-        usuarios.forEach(user -> {
-            user.getContaSincrona(); // Garante que a conta síncrona seja carregada
-            user.getContaAssincrona(); // Garante que a conta assíncrona seja carregada
-        });
-        return ResponseEntity.ok(usuarios);
-    }
+public ResponseEntity<List<UserDTO>> listarUsuariosComContas() {
+    List<User> usuarios = userRepository.findAll();
+    List<UserDTO> usuariosDTO = usuarios.stream().map(user -> {
+        UserDTO dto = new UserDTO();
+        dto.setId(user.getId());
+        dto.setEmail(user.getEmail());
+        dto.setRole(user.getRole());
+        dto.setContaSincrona(user.getContaSincrona());
+        dto.setContaAssincrona(user.getContaAssincrona());
+        return dto;
+    }).toList();
+    return ResponseEntity.ok(usuariosDTO);
+}
 }

@@ -41,48 +41,42 @@ public class TransacaoService {
     }
 
     @Transactional
-    public Transacao realizarTransacaoSincrona(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor) {
-        // Verificar se o valor é válido
-        if (valor <= 0) {
-            throw new IllegalArgumentException("O valor da transação deve ser maior que zero.");
-        }
-
-        // Buscar contas dos usuários
-        Conta contaOrigem = contaSincronaRepository.findByUserId(idUsuarioOrigem);
-        Conta contaDestino = contaSincronaRepository.findByUserId(idUsuarioDestino);
-    
-        if (contaOrigem == null || contaDestino == null) {
-            throw new IllegalArgumentException("Conta de origem ou destino não encontrada.");
-        }
-
-        // Verificar saldo suficiente
-        if (contaOrigem.getSaldo() < valor) {
-            throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
-        }
-
-        // Atualizar saldos
-        contaOrigem.setSaldo(contaOrigem.getSaldo() - valor);
-        contaDestino.setSaldo(contaDestino.getSaldo() + valor);
-
-        // Salvar alterações nas contas
-        if (contaOrigem instanceof ContaSincrona && contaDestino instanceof ContaSincrona) {
-            contaSincronaRepository.save((ContaSincrona) contaOrigem);
-            contaSincronaRepository.save((ContaSincrona) contaDestino);
-        } else {
-            throw new IllegalArgumentException("As contas não são do tipo ContaSincrona.");
-        }
-
-        // Criar e salvar a transação
-        Transacao transacao = new Transacao();
-        transacao.setIdUsuarioOrigem(idUsuarioOrigem);
-        transacao.setIdUsuarioDestino(idUsuarioDestino);
-        transacao.setValor(valor);
-        transacao.setTipoTransacao(TipoTransacao.SINCRONA);
-        transacao.setServicoPagamento("Stripe"); // Exemplo de serviço de pagamento
-        transacao.setSincronizada(true);
-
-        return transacaoRepository.save(transacao);
+public Transacao realizarTransacaoSincrona(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor) {
+    if (idUsuarioOrigem == null || idUsuarioDestino == null) {
+        throw new IllegalArgumentException("Os IDs dos usuários de origem e destino são obrigatórios.");
     }
+    if (valor == null || valor <= 0) {
+        throw new IllegalArgumentException("O valor da transação deve ser maior que zero.");
+    }
+
+    // Buscar contas e processar a transação
+    ContaSincrona contaOrigem = contaSincronaRepository.findByUserId(idUsuarioOrigem);
+    ContaSincrona contaDestino = contaSincronaRepository.findByUserId(idUsuarioDestino);
+
+    if (contaOrigem == null || contaDestino == null) {
+        throw new IllegalArgumentException("Conta de origem ou destino não encontrada.");
+    }
+
+    if (contaOrigem.getSaldo() < valor) {
+        throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
+    }
+
+    contaOrigem.setSaldo(contaOrigem.getSaldo() - valor);
+    contaDestino.setSaldo(contaDestino.getSaldo() + valor);
+
+    contaSincronaRepository.save(contaOrigem);
+    contaSincronaRepository.save(contaDestino);
+
+    Transacao transacao = new Transacao();
+    transacao.setIdUsuarioOrigem(idUsuarioOrigem);
+    transacao.setIdUsuarioDestino(idUsuarioDestino);
+    transacao.setValor(valor);
+    transacao.setTipoTransacao(TipoTransacao.SINCRONA);
+    transacao.setServicoPagamento("Stripe");
+    transacao.setSincronizada(true);
+
+    return transacaoRepository.save(transacao);
+}
 
     public Transacao realizarTransacaoAssincrona(String emailUsuarioOrigem, Long idUsuarioDestino, Double valor, String metodoConexao) {
         // Lógica para transações assíncronas

@@ -21,16 +21,22 @@ public class UserService {
     private final ContaAssincronaRepository contaAssincronaRepository;
 
     public User criarUsuario(String email, String senha) {
+        // Criar o usuário
         User usuario = new User(email, senha, UserRole.USER);
         usuario = userRepository.save(usuario);
     
+        // Criar e associar a conta síncrona
         ContaSincrona contaSincrona = new ContaSincrona(100.0, usuario);
-        contaSincronaRepository.save(contaSincrona);
+        contaSincrona = contaSincronaRepository.save(contaSincrona);
+        usuario.setContaSincrona(contaSincrona);
     
+        // Criar e associar a conta assíncrona
         ContaAssincrona contaAssincrona = new ContaAssincrona(0.0, usuario);
-        contaAssincronaRepository.save(contaAssincrona);
+        contaAssincrona = contaAssincronaRepository.save(contaAssincrona);
+        usuario.setContaAssincrona(contaAssincrona);
     
-        return usuario;
+        // Atualizar o usuário com as contas associadas
+        return userRepository.save(usuario);
     }
 
 public long countUsers() {
