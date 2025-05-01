@@ -31,7 +31,7 @@ public class UserService {
         usuario.setContaSincrona(contaSincrona);
     
         // Criar e associar a conta assíncrona
-        ContaAssincrona contaAssincrona = new ContaAssincrona(0.0, usuario);
+        ContaAssincrona contaAssincrona = new ContaAssincrona(100.0, usuario);
         contaAssincrona = contaAssincronaRepository.save(contaAssincrona);
         usuario.setContaAssincrona(contaAssincrona);
     

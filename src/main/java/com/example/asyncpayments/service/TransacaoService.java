@@ -1,11 +1,13 @@
 package com.example.asyncpayments.service;
 
 import com.example.asyncpayments.entity.Transacao;
-import com.example.asyncpayments.entity.Conta;
+import com.example.asyncpayments.entity.ContaAssincrona;
 import com.example.asyncpayments.entity.ContaSincrona;
-import com.example.asyncpayments.entity.TipoConta;
 import com.example.asyncpayments.entity.TipoTransacao;
+import com.example.asyncpayments.entity.GatewayPagamento;
+import com.example.asyncpayments.entity.MetodoConexao;
 import com.example.asyncpayments.repository.ContaSincronaRepository;
+import com.example.asyncpayments.repository.ContaAssincronaRepository;
 import com.example.asyncpayments.repository.TransacaoRepository;
 import com.example.asyncpayments.repository.UserRepository;
 import jakarta.transaction.Transactional;
@@ -22,6 +24,7 @@ public class TransacaoService {
     private final TransacaoRepository transacaoRepository;
     private final UserRepository userRepository;
     private final ContaSincronaRepository contaSincronaRepository;
+    private final ContaAssincronaRepository contaAssincronaRepository;
 
     public Transacao criarTransacao(Transacao transacao, String emailUsuarioOrigem) {
         transacao.setDataCriacao(LocalDateTime.now());
@@ -41,7 +44,7 @@ public class TransacaoService {
     }
 
     @Transactional
-public Transacao realizarTransacaoSincrona(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor) {
+public Transacao realizarTransacao(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor, MetodoConexao metodoConexao, GatewayPagamento gatewayPagamento) {
     if (idUsuarioOrigem == null || idUsuarioDestino == null) {
         throw new IllegalArgumentException("Os IDs dos usuários de origem e destino são obrigatórios.");
     }
@@ -49,45 +52,56 @@ public Transacao realizarTransacaoSincrona(Long idUsuarioOrigem, Long idUsuarioD
         throw new IllegalArgumentException("O valor da transação deve ser maior que zero.");
     }
 
-    // Buscar contas e processar a transação
-    ContaSincrona contaOrigem = contaSincronaRepository.findByUserId(idUsuarioOrigem);
-    ContaSincrona contaDestino = contaSincronaRepository.findByUserId(idUsuarioDestino);
+    if (metodoConexao == MetodoConexao.INTERNET) {
+        // Transações por internet devem ser feitas em contas síncronas
+        ContaSincrona contaOrigem = contaSincronaRepository.findByUserId(idUsuarioOrigem);
+        ContaSincrona contaDestino = contaSincronaRepository.findByUserId(idUsuarioDestino);
 
-    if (contaOrigem == null || contaDestino == null) {
-        throw new IllegalArgumentException("Conta de origem ou destino não encontrada.");
+        if (contaOrigem == null || contaDestino == null) {
+            throw new IllegalArgumentException("Conta de origem ou destino não encontrada.");
+        }
+
+        if (contaOrigem.getSaldo() < valor) {
+            throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
+        }
+
+        contaOrigem.setSaldo(contaOrigem.getSaldo() - valor);
+        contaDestino.setSaldo(contaDestino.getSaldo() + valor);
+
+        contaSincronaRepository.save(contaOrigem);
+        contaSincronaRepository.save(contaDestino);
+    } else {
+        // Transações por bluetooth, sms ou nfc devem ser feitas em contas assíncronas
+        ContaAssincrona contaOrigem = contaAssincronaRepository.findByUserId(idUsuarioOrigem);
+        ContaAssincrona contaDestino = contaAssincronaRepository.findByUserId(idUsuarioDestino);
+
+        if (contaOrigem == null || contaDestino == null) {
+            throw new IllegalArgumentException("Conta de origem ou destino não encontrada.");
+        }
+
+        if (contaOrigem.getSaldo() < valor) {
+            throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
+        }
+
+        contaOrigem.setSaldo(contaOrigem.getSaldo() - valor);
+        contaDestino.setSaldo(contaDestino.getSaldo() + valor);
+
+        contaAssincronaRepository.save(contaOrigem);
+        contaAssincronaRepository.save(contaDestino);
     }
-
-    if (contaOrigem.getSaldo() < valor) {
-        throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
-    }
-
-    contaOrigem.setSaldo(contaOrigem.getSaldo() - valor);
-    contaDestino.setSaldo(contaDestino.getSaldo() + valor);
-
-    contaSincronaRepository.save(contaOrigem);
-    contaSincronaRepository.save(contaDestino);
 
     Transacao transacao = new Transacao();
     transacao.setIdUsuarioOrigem(idUsuarioOrigem);
     transacao.setIdUsuarioDestino(idUsuarioDestino);
     transacao.setValor(valor);
-    transacao.setTipoTransacao(TipoTransacao.SINCRONA);
-    transacao.setServicoPagamento("Stripe");
-    transacao.setSincronizada(true);
+    transacao.setMetodoConexao(metodoConexao);
+    transacao.setGatewayPagamento(gatewayPagamento);
+    transacao.setSincronizada(metodoConexao == MetodoConexao.INTERNET);
 
     return transacaoRepository.save(transacao);
 }
 
-    public Transacao realizarTransacaoAssincrona(String emailUsuarioOrigem, Long idUsuarioDestino, Double valor, String metodoConexao) {
-        // Lógica para transações assíncronas
-        Transacao transacao = new Transacao();
-        transacao.setIdUsuarioOrigem(buscarIdUsuarioPorEmail(emailUsuarioOrigem));
-        transacao.setIdUsuarioDestino(idUsuarioDestino);
-        transacao.setValor(valor);
-        transacao.setTipoTransacao(TipoTransacao.ASSINCRONA);
-        transacao.setMetodoConexao(metodoConexao);
-        transacao.setDataCriacao(LocalDateTime.now());
-        transacao.setSincronizada(false); // Transações assíncronas não são sincronizadas inicialmente
-        return transacaoRepository.save(transacao);
+    public List<Transacao> listarTodasTransacoes() {
+        return transacaoRepository.findAll(); // Busca todas as transações
     }
 }

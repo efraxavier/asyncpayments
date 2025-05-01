@@ -33,10 +33,13 @@ public class Transacao {
     @NotNull(message = "O tipo de transação é obrigatório.")
     private TipoTransacao tipoTransacao; // SINCRONA ou ASSINCRONA
 
-    private String metodoConexao; // bluetooth, nfc, sms (apenas para assincronas)
+    @Enumerated(EnumType.STRING)
+    @NotNull(message = "O método de conexão é obrigatório.")
+    private MetodoConexao metodoConexao; // INTERNET, BLUETOOTH, SMS, NFC
 
-    @NotNull(message = "O serviço de pagamento é obrigatório.")
-    private String servicoPagamento; // PagarMe, Mercado Pago, Stripe
+    @Enumerated(EnumType.STRING)
+    @NotNull(message = "O gateway de pagamento é obrigatório.")
+    private GatewayPagamento gatewayPagamento; // STRIPE, PAGARME, MERCADO_PAGO
 
     private LocalDateTime dataCriacao;
     private LocalDateTime dataAtualizacao;
