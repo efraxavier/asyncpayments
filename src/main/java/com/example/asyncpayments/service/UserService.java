@@ -1,9 +1,7 @@
 package com.example.asyncpayments.service;
 
-import com.example.asyncpayments.entity.Conta;
 import com.example.asyncpayments.entity.ContaAssincrona;
 import com.example.asyncpayments.entity.ContaSincrona;
-import com.example.asyncpayments.entity.TipoConta;
 import com.example.asyncpayments.entity.User;
 import com.example.asyncpayments.entity.UserRole;
 import com.example.asyncpayments.repository.ContaAssincronaRepository;
