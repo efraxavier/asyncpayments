@@ -9,6 +9,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.Collection;
 import java.util.List;
 
@@ -19,17 +21,46 @@ import java.util.List;
 @Entity
 @Table(name = "users")
 public class User implements UserDetails {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
-    @Column(unique = true)
+
+    @Column(unique = true, nullable = false)
     private String email;
-    
+
+    @JsonIgnore
+    @Column(nullable = false)
     private String password;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private UserRole role;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private ContaSincrona contaSincrona;
+    
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private ContaAssincrona contaAssincrona;
+
+    @Column(length = 14, unique = true)
+    private String cpf;
+
+    @Column(nullable = false)
+    private String nome;
+
+    @Column(nullable = false)
+    private String sobrenome;
+
+    @Column(length = 20)
+    private String celular;
+
+    @Column(name = "kyc_validado", nullable = false)
+    private boolean kycValidado = false;
+
+    @Column(name = "consentimento_dados")
+    private Boolean consentimentoDados;
+
 
     public User(String email, String password, UserRole role) {
         this.email = email;
@@ -37,13 +68,20 @@ public class User implements UserDetails {
         this.role = role;
     }
 
+
+    public User(String email, String password, UserRole role, String cpf, String nome, String sobrenome, String celular) {
+        this.email = email;
+        this.password = password;
+        this.role = role;
+        this.cpf = cpf;
+        this.nome = nome;
+        this.sobrenome = sobrenome;
+        this.celular = celular;
+       }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        if (this.role == UserRole.ADMIN) {
-            return List.of(new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ROLE_USER"));
-        } else {
-            return List.of(new SimpleGrantedAuthority("ROLE_USER"));
-        }
+    return List.of(new SimpleGrantedAuthority("ROLE_" + this.role.name()));
     }
 
     @Override

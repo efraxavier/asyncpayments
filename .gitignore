@@ -49,3 +49,31 @@ Thumbs.db
 application.properties
 application.yml
 .env
+
+# Arquivos de banco de dados locais
+*.db
+*.mv.db
+*.h2.db
+
+# Arquivos gerados pelo sistema operacional
+*.bak
+*.tmp
+*.old
+*.orig
+
+# Arquivos de cache
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.7z
+*.rar
+
+# Arquivos de teste
+*.test
+*.spec
+
+# Coleção de testes/requests locais
+async.json
