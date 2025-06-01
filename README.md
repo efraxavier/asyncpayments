@@ -1,6 +1,6 @@
 # AsyncPayments
 
-AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagamentos síncronos e assíncronos, com autenticação JWT, integração com gateways de pagamento e suporte a múltiplos métodos de conexão (INTERNET, BLUETOOTH, SMS, NFC).
+AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagamentos síncronos e assíncronos, com autenticação JWT, integração com gateways de pagamento e suporte a múltiplos métodos de conexão (INTERNET, BLUETOOTH, SMS, NFC, ASYNC).
 
 ## Funcionalidades
 
@@ -11,7 +11,7 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
 - Listagem de usuários e transações
 - Sincronização manual e automática de contas assíncronas
 - Bloqueio automático de contas assíncronas inativas
-- Integração com gateways de pagamento (STRIPE, PAGARME, MERCADO_PAGO, INTERNO)
+- Integração com gateways de pagamento (STRIPE, PAGARME, MERCADO_PAGO, INTERNO, DREX, PAGSEGURO, PAYCERTIFY)
 - Logging detalhado e tratamento global de exceções
 
 ## Endpoints
@@ -43,6 +43,9 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
 - `GET /usuarios/listar`  
   Lista todos os usuários com suas contas
 
+- `GET /usuarios/me`  
+  Retorna dados e saldos do usuário autenticado (útil para checar saldo após transações internas ou assíncronas)
+
 ### Transações
 
 - `GET /transacoes/todas`  
@@ -61,14 +64,22 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
   }
   ```
 
-- `POST /acoes/adicionar-assincrona/{idUsuario}`  
-  Transfere saldo da conta síncrona para a assíncrona do mesmo usuário  
-  **Body:**  
+- `POST /transacoes`  
+  Realiza uma transação (síncrona, assíncrona ou interna).  
+  **Exemplo de depósito interno (conta síncrona → assíncrona):**
   ```json
   {
-    "valor": 10.0
+    "idUsuarioOrigem": 1,
+    "idUsuarioDestino": 1,
+    "valor": 50.0,
+    "gatewayPagamento": "INTERNO",
+    "metodoConexao": "ASYNC",
+    "descricao": "Depósito interno para conta assíncrona"
   }
   ```
+
+- `GET /transacoes/recebidas`  
+  Lista transações recebidas pelo usuário autenticado
 
 ### Sincronização
 
@@ -77,6 +88,31 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
 
 - `POST /sincronizacao/manual/{id}`  
   Sincroniza uma conta assíncrona específica pelo ID
+
+- `POST /sincronizacao/me`  
+  Sincroniza a conta assíncrona do usuário autenticado
+
+## Exemplos de uso (Insomnia/JSON)
+
+- **Depositar da conta síncrona para a assíncrona do mesmo usuário:**
+  ```json
+  {
+    "idUsuarioOrigem": 1,
+    "idUsuarioDestino": 1,
+    "valor": 50.0,
+    "gatewayPagamento": "INTERNO",
+    "metodoConexao": "ASYNC",
+    "descricao": "Depósito interno para conta assíncrona"
+  }
+  ```
+
+- **Buscar usuário autenticado e saldos:**
+  ```
+  GET /usuarios/me
+  ```
+
+- **Coleção Insomnia:**  
+  Veja exemplos prontos em [`src/main/java/com/example/asyncpayments/async.json`](src/main/java/com/example/asyncpayments/async.json)
 
 ## Dependências
 
@@ -145,6 +181,7 @@ Utilize Postman, Insomnia ou cURL para testar os endpoints descritos acima.
 - Código principal: [`src/main/java/com/example/asyncpayments/AsyncpaymentsApplication.java`](src/main/java/com/example/asyncpayments/AsyncpaymentsApplication.java)
 - Configurações: [`src/main/resources/application.properties`](src/main/resources/application.properties)
 - Testes: [`src/test/java/com/example/asyncpayments/`](src/test/java/com/example/asyncpayments/)
+- Coleção de exemplos para Insomnia: [`src/main/java/com/example/asyncpayments/async.json`](src/main/java/com/example/asyncpayments/async.json)
 
 ## Licença
 

@@ -1,0 +1,131 @@
+package com.example.asyncpayments.controller;
+
+import com.example.asyncpayments.dto.UserDTO;
+import com.example.asyncpayments.entity.User;
+import com.example.asyncpayments.repository.UserRepository;
+
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class UserControllerTest {
+
+    @Mock
+    private UserRepository userRepository;
+
+    @InjectMocks
+    private UserController userController;
+
+    @Mock
+    private Authentication authentication;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void getMe_deveRetornarUsuarioAutenticado() {
+        User user = new User();
+        user.setEmail("me@email.com");
+        when(authentication.getName()).thenReturn("me@email.com");
+        when(userRepository.findByEmail("me@email.com")).thenReturn(Optional.of(user));
+
+        ResponseEntity<UserDTO> response = userController.getMe(authentication);
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("me@email.com", response.getBody().getEmail());
+    }
+
+    @Test
+    void aceitarKyc_deveAceitarKyc() {
+        User user = new User();
+        user.setEmail("me@email.com");
+        when(authentication.getName()).thenReturn("me@email.com");
+        when(userRepository.findByEmail("me@email.com")).thenReturn(Optional.of(user));
+
+        ResponseEntity<?> response = userController.aceitarKyc(authentication);
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("KYC aceito.", response.getBody());
+        assertTrue(user.isKycValidado());
+    }
+
+    @Test
+    void anonimizar_deveAnonimizarDados() {
+        User user = new User();
+        user.setEmail("me@email.com");
+        user.setNome("Nome");
+        user.setSobrenome("Sobrenome");
+        user.setCelular("123");
+        user.setCpf("123");
+        user.setConsentimentoDados(true);
+
+        when(authentication.getName()).thenReturn("me@email.com");
+        when(userRepository.findByEmail("me@email.com")).thenReturn(Optional.of(user));
+
+        ResponseEntity<?> response = userController.anonimizar(authentication);
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("Dados anonimizados.", response.getBody());
+        assertNull(user.getNome());
+        assertNull(user.getSobrenome());
+        assertNull(user.getCelular());
+        assertNull(user.getCpf());
+        assertFalse(user.getConsentimentoDados());
+    }
+
+    @Test
+void getMe_usuarioNaoEncontrado_deveRetornar404() {
+    when(authentication.getName()).thenReturn("notfound@email.com");
+    when(userRepository.findByEmail("notfound@email.com")).thenReturn(Optional.empty());
+
+    ResponseEntity<UserDTO> response = userController.getMe(authentication);
+
+    assertEquals(404, response.getStatusCodeValue());
+    assertNull(response.getBody());
+}
+
+@Test
+void aceitarKyc_usuarioNaoEncontrado_deveRetornar404() {
+    when(authentication.getName()).thenReturn("notfound@email.com");
+    when(userRepository.findByEmail("notfound@email.com")).thenReturn(Optional.empty());
+
+    ResponseEntity<?> response = userController.aceitarKyc(authentication);
+
+    assertEquals(404, response.getStatusCodeValue());
+}
+@Test
+void listarUsuarios_deveRetornarLista() {
+    User user = new User();
+    user.setEmail("a@b.com");
+    when(userRepository.findAll()).thenReturn(List.of(user));
+    ResponseEntity<List<UserDTO>> response = userController.listarUsuarios();
+    assertEquals(200, response.getStatusCodeValue());
+    assertFalse(response.getBody().isEmpty());
+}
+
+@Test
+void buscarUsuarioPorId_usuarioNaoEncontrado_deveRetornar404() {
+    when(userRepository.findById(1L)).thenReturn(Optional.empty());
+    ResponseEntity<UserDTO> response = userController.buscarUsuarioPorId(1L);
+    assertEquals(404, response.getStatusCodeValue());
+}
+@Test
+void anonimizar_usuarioNaoEncontrado_deveRetornar404() {
+    when(authentication.getName()).thenReturn("notfound@email.com");
+    when(userRepository.findByEmail("notfound@email.com")).thenReturn(Optional.empty());
+
+    ResponseEntity<?> response = userController.anonimizar(authentication);
+
+    assertEquals(404, response.getStatusCodeValue());
+}
+}

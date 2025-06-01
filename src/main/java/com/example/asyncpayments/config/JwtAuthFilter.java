@@ -29,7 +29,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
         String requestPath = request.getServletPath();
 
-        // Ignorar endpoints públicos
+
         if (requestPath.equals("/auth/login") || requestPath.equals("/auth/register")) {
             filterChain.doFilter(request, response);
             return;
@@ -44,7 +44,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String userEmail;
 
         try {
-            userEmail = jwtService.extractUsername(jwt); // Extrai o e-mail do token
+            userEmail = jwtService.extractUsername(jwt);
         } catch (Exception e) {
             filterChain.doFilter(request, response);
             return;

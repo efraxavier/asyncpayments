@@ -4,5 +4,6 @@ public enum MetodoConexao {
     INTERNET,
     BLUETOOTH,
     SMS,
-    NFC
+    NFC,
+    ASYNC
 }

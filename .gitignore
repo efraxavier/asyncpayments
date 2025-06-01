@@ -74,3 +74,6 @@ application.yml
 # Arquivos de teste
 *.test
 *.spec
+
+# Coleção de testes/requests locais
+async.json

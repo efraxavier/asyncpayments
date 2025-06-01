@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -42,18 +43,45 @@ public class User implements UserDetails {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private ContaAssincrona contaAssincrona;
 
-    // Construtor para criar um usuário com email, senha e papel
+    @Column(length = 14, unique = true)
+    private String cpf;
+
+    @Column(nullable = false)
+    private String nome;
+
+    @Column(nullable = false)
+    private String sobrenome;
+
+    @Column(length = 20)
+    private String celular;
+
+    @Column(name = "kyc_validado", nullable = false)
+    private boolean kycValidado = false;
+
+    @Column(name = "consentimento_dados")
+    private Boolean consentimentoDados;
+
+
     public User(String email, String password, UserRole role) {
         this.email = email;
         this.password = password;
         this.role = role;
     }
 
-    // Implementação de UserDetails
-    @JsonIgnore
+
+    public User(String email, String password, UserRole role, String cpf, String nome, String sobrenome, String celular) {
+        this.email = email;
+        this.password = password;
+        this.role = role;
+        this.cpf = cpf;
+        this.nome = nome;
+        this.sobrenome = sobrenome;
+        this.celular = celular;
+       }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(() -> "ROLE_" + role.name());
+    return List.of(new SimpleGrantedAuthority("ROLE_" + this.role.name()));
     }
 
     @Override

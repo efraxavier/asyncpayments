@@ -6,8 +6,12 @@ import com.example.asyncpayments.entity.MetodoConexao;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class TransacaoRequest {
     @NotNull(message = "O ID do usuário de origem é obrigatório.")
     private Long idUsuarioOrigem;
@@ -24,4 +28,6 @@ public class TransacaoRequest {
 
     @NotNull(message = "O gateway de pagamento é obrigatório.")
     private GatewayPagamento gatewayPagamento;
+
+    private String descricao; // <-- Novo campo
 }

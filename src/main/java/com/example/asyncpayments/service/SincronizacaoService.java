@@ -7,7 +7,8 @@ import com.example.asyncpayments.repository.ContaSincronaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Service
@@ -22,22 +23,20 @@ public class SincronizacaoService {
 
         for (ContaAssincrona contaAssincrona : contasAssincronas) {
             if (contaAssincrona.isBloqueada()) {
-                continue; // Ignorar contas bloqueadas
+                continue; 
             }
 
-            LocalDateTime agora = LocalDateTime.now();
-            if (contaAssincrona.getUltimaSincronizacao().isBefore(agora.minusMinutes(5))) {
-                // Bloquear conta se a última sincronização foi há mais de 12 horas
+            OffsetDateTime agora = OffsetDateTime.now(ZoneOffset.UTC);
+            if (contaAssincrona.getUltimaSincronizacao().isBefore(agora.minusHours(72))) {
                 contaAssincrona.bloquear();
                 contaAssincronaRepository.save(contaAssincrona);
                 continue;
             }
 
-            // Sincronizar saldo com a conta síncrona
             ContaSincrona contaSincrona = contaSincronaRepository.findByUserId(contaAssincrona.getUser().getId());
             if (contaSincrona != null) {
                 contaSincrona.setSaldo(contaSincrona.getSaldo() + contaAssincrona.getSaldo());
-                contaAssincrona.setSaldo(0.0); // Zerar saldo da conta assíncrona após sincronização
+                contaAssincrona.setSaldo(0.0);
                 contaAssincrona.sincronizar();
 
                 contaSincronaRepository.save(contaSincrona);
@@ -46,28 +45,22 @@ public class SincronizacaoService {
         }
     }
 
-    /**
-     * Sincroniza uma conta assíncrona específica pelo ID e a desbloqueia.
-     */
+
     public void sincronizarConta(Long idContaAssincrona) {
     ContaAssincrona contaAssincrona = contaAssincronaRepository.findById(idContaAssincrona)
             .orElseThrow(() -> new IllegalArgumentException("Conta assíncrona não encontrada."));
 
-    // Sincronizar saldo com a conta síncrona correspondente
     ContaSincrona contaSincrona = contaSincronaRepository.findByUserId(contaAssincrona.getUser().getId());
     if (contaSincrona == null) {
         throw new IllegalArgumentException("Conta síncrona correspondente não encontrada.");
     }
 
-    // Transferir saldo da conta assíncrona para a conta síncrona
     contaSincrona.setSaldo(contaSincrona.getSaldo() + contaAssincrona.getSaldo());
-    contaAssincrona.setSaldo(0.0); // Zerar saldo da conta assíncrona após sincronização
+    contaAssincrona.setSaldo(0.0);
 
-    // Atualizar a última sincronização e desbloquear a conta
-    contaAssincrona.setUltimaSincronizacao(LocalDateTime.now());
+    contaAssincrona.setUltimaSincronizacao(OffsetDateTime.now(ZoneOffset.UTC));
     contaAssincrona.setBloqueada(false);
 
-    // Salvar as alterações
     contaSincronaRepository.save(contaSincrona);
     contaAssincronaRepository.save(contaAssincrona);
     
@@ -77,14 +70,12 @@ public class SincronizacaoService {
         List<ContaAssincrona> contasAssincronas = contaAssincronaRepository.findAll();
     
         for (ContaAssincrona contaAssincrona : contasAssincronas) {
-            // Verificar se a conta já está bloqueada
             if (contaAssincrona.isBloqueada()) {
-                continue; // Ignorar contas já bloqueadas
+                continue; 
             }
     
-            // Verificar se a conta tem saldo e se a última sincronização foi há mais de 12 horas
             if (contaAssincrona.getSaldo() > 0 &&
-                contaAssincrona.getUltimaSincronizacao().isBefore(LocalDateTime.now().minusMinutes(3))) {
+                contaAssincrona.getUltimaSincronizacao().isBefore(OffsetDateTime.now(ZoneOffset.UTC).minusHours(72))) {
                 contaAssincrona.setBloqueada(true);
                 contaAssincronaRepository.save(contaAssincrona);
             }

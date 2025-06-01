@@ -1,6 +1,8 @@
 package com.example.asyncpayments.entity;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.PrePersist;
@@ -13,9 +15,9 @@ import lombok.NoArgsConstructor;
 @Entity
 public class ContaAssincrona extends Conta {
 
-    private boolean bloqueada; // Indica se a conta está bloqueada
+    private boolean bloqueada;
 
-    private LocalDateTime ultimaSincronizacao; // Data/hora da última sincronização
+    private OffsetDateTime ultimaSincronizacao;
 
     public ContaAssincrona(Double saldo, User user) {
         super(saldo, user);
@@ -28,30 +30,25 @@ public class ContaAssincrona extends Conta {
 
     @PrePersist
     protected void onCreate() {
-        this.ultimaSincronizacao = LocalDateTime.now();
+        this.ultimaSincronizacao = OffsetDateTime.now(ZoneOffset.UTC);
         this.bloqueada = false;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        // Verifica se a conta deve ser bloqueada antes de salvar
-        if (ultimaSincronizacao.isBefore(LocalDateTime.now().minusMinutes(5))) {
+
+        if (ultimaSincronizacao.isBefore(OffsetDateTime.now(ZoneOffset.UTC).minusHours(72))) {
             this.bloqueada = true;
         }
     }
 
-    /**
-     * Método para sincronizar a conta.
-     * Atualiza a última sincronização e desbloqueia a conta.
-     */
+
     public void sincronizar() {
-        this.ultimaSincronizacao = LocalDateTime.now();
+        this.ultimaSincronizacao = OffsetDateTime.now(ZoneOffset.UTC);
         this.bloqueada = false;
     }
 
-    /**
-     * Método para bloquear a conta.
-     */
+
     public void bloquear() {
         this.bloqueada = true;
     }

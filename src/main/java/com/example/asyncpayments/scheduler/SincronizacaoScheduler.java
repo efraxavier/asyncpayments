@@ -11,8 +11,8 @@ public class SincronizacaoScheduler {
 
     private final SincronizacaoService sincronizacaoService;
 
-    // Executa a verificação de bloqueio a cada 1 minuto
-    @Scheduled(fixedRate = 60000) // 1 minuto em milissegundos
+
+    @Scheduled(fixedRate = 60000)
     public void verificarEBloquearContas() {
         sincronizacaoService.verificarEBloquearContas();
     }

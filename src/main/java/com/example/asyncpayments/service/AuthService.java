@@ -4,7 +4,9 @@ import com.example.asyncpayments.dto.AuthRequest;
 import com.example.asyncpayments.dto.AuthResponse;
 import com.example.asyncpayments.dto.RegisterRequest;
 import com.example.asyncpayments.entity.User;
+import com.example.asyncpayments.entity.UserRole;
 import com.example.asyncpayments.repository.UserRepository;
+import com.example.asyncpayments.util.UserFakerUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,30 +22,35 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final UserService userService;
 
-    /**
-     * Handles user registration and returns a JWT token.
-     */
     public AuthResponse register(RegisterRequest request) {
-        // Create a new user
-        var user = User.builder()
-                .email(request.email())
-                .password(passwordEncoder.encode(request.password()))
-                .build();
+        if (userRepository.findByEmail(request.email()).isPresent()) {
+        throw new IllegalArgumentException("E-mail já cadastrado.");
+    }
+    if (userRepository.findByCpf(request.cpf()).isPresent()) {
+        throw new IllegalArgumentException("CPF já cadastrado.");
+    }
+        System.out.println("RegisterRequest recebido: " + request);
 
-        // Save the user in the database
-        userRepository.save(user);
+        User user = userService.criarUsuario(
+            request.email(),
+            passwordEncoder.encode(request.password()),
+            request.cpf() != null ? request.cpf() : UserFakerUtil.fakeCpf(),
+            request.nome() != null ? request.nome() : UserFakerUtil.fakeNome(),
+            request.sobrenome() != null ? request.sobrenome() : UserFakerUtil.fakeSobrenome(),
+            request.celular() != null ? request.celular() : UserFakerUtil.fakeCelular(),
+            UserRole.valueOf(request.role()),
+            request.consentimentoDados()
+        );
 
-        // Generate a JWT token with the user's ID
         var jwtToken = jwtService.generateToken(user, user.getId());
         return new AuthResponse(jwtToken);
     }
 
-    /**
-     * Handles user login and returns a JWT token.
-     */
+
     public AuthResponse login(AuthRequest request) {
-        // Authenticate the user
+
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.email(),
@@ -51,11 +58,11 @@ public class AuthService {
                 )
         );
 
-        // Find the user in the database
+
         var user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        // Generate a JWT token with the user's ID
+
         var jwtToken = jwtService.generateToken(user, user.getId());
         return new AuthResponse(jwtToken);
     }

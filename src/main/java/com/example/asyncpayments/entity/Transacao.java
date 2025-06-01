@@ -7,7 +7,8 @@ import lombok.NoArgsConstructor;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Entity
 @Data
@@ -31,29 +32,32 @@ public class Transacao {
 
     @Enumerated(EnumType.STRING)
     @NotNull(message = "O tipo de transação é obrigatório.")
-    private TipoTransacao tipoTransacao; // SINCRONA ou ASSINCRONA
+    private TipoTransacao tipoTransacao;
 
     @Enumerated(EnumType.STRING)
     @NotNull(message = "O método de conexão é obrigatório.")
-    private MetodoConexao metodoConexao; // INTERNET, BLUETOOTH, SMS, NFC
+    private MetodoConexao metodoConexao;
 
     @Enumerated(EnumType.STRING)
     @NotNull(message = "O gateway de pagamento é obrigatório.")
-    private GatewayPagamento gatewayPagamento; // STRIPE, PAGARME, MERCADO_PAGO
+    private GatewayPagamento gatewayPagamento;
 
-    private LocalDateTime dataCriacao;
-    private LocalDateTime dataAtualizacao;
+    @Column(length = 140)
+    private String descricao;
 
-    private boolean sincronizada; // Indica se a transação foi sincronizada
+    private OffsetDateTime dataCriacao;
+    private OffsetDateTime dataAtualizacao;
+
+    private boolean sincronizada;
 
     @PrePersist
     protected void onCreate() {
-        this.dataCriacao = LocalDateTime.now();
-        this.dataAtualizacao = LocalDateTime.now();
+        this.dataCriacao = OffsetDateTime.now(ZoneOffset.UTC);
+        this.dataAtualizacao = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.dataAtualizacao = LocalDateTime.now();
+        this.dataAtualizacao = OffsetDateTime.now(ZoneOffset.UTC);
     }
 }

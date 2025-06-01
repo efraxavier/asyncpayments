@@ -18,26 +18,52 @@ public class UserService {
     private final ContaSincronaRepository contaSincronaRepository;
     private final ContaAssincronaRepository contaAssincronaRepository;
 
-    public User criarUsuario(String email, String senha) {
-        // Criar o usuário
-        User usuario = new User(email, senha, UserRole.USER);
+    public User criarUsuario(
+            String email,
+            String senha,
+            String cpf,
+            String nome,
+            String sobrenome,
+            String celular,
+            UserRole role,
+            boolean consentimentoDados
+    ) {
+        boolean kycValidado = email != null && !email.isBlank()
+                && senha != null && !senha.isBlank()
+                && cpf != null && !cpf.isBlank()
+                && nome != null && !nome.isBlank()
+                && sobrenome != null && !sobrenome.isBlank()
+                && celular != null && !celular.isBlank();
+
+        User usuario = User.builder()
+                .email(email)
+                .password(senha)
+                .cpf(cpf)
+                .nome(nome)
+                .sobrenome(sobrenome)
+                .celular(celular)
+                .role(role)
+                .kycValidado(kycValidado)
+                .consentimentoDados(consentimentoDados)
+                .build();
+
         usuario = userRepository.save(usuario);
-    
-        // Criar e associar a conta síncrona
+
+
         ContaSincrona contaSincrona = new ContaSincrona(100.0, usuario);
         contaSincrona = contaSincronaRepository.save(contaSincrona);
         usuario.setContaSincrona(contaSincrona);
-    
-        // Criar e associar a conta assíncrona
-        ContaAssincrona contaAssincrona = new ContaAssincrona(100.0, usuario);
+
+
+        ContaAssincrona contaAssincrona = new ContaAssincrona(0.0, usuario);
         contaAssincrona = contaAssincronaRepository.save(contaAssincrona);
         usuario.setContaAssincrona(contaAssincrona);
-    
-        // Atualizar o usuário com as contas associadas
+
+
         return userRepository.save(usuario);
     }
 
-public long countUsers() {
-    return userRepository.count();
-}
+    public long countUsers() {
+        return userRepository.count();
+    }
 }

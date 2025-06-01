@@ -17,28 +17,22 @@ public class JwtService {
     @Value("${jwt.secret-key}")
     private String secretKey;
 
-    @Value("${jwt.expiration:86400000}") // Default: 1 day
+    @Value("${jwt.expiration:86400000}")
     private long jwtExpiration;
 
     private Algorithm getAlgorithm() {
         return Algorithm.HMAC256(secretKey);
     }
 
-    /**
-     * Generates a token for the given UserDetails, including the user ID as a claim.
-     */
     public String generateToken(UserDetails userDetails, Long userId) {
         return JWT.create()
                 .withSubject(userDetails.getUsername())
-                .withClaim("id", userId) // Adiciona o ID do usuário como claim
+                .withClaim("id", userId)
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + jwtExpiration))
                 .sign(getAlgorithm());
     }
 
-    /**
-     * Validates the token by checking the username and expiration.
-     */
     public boolean isTokenValid(String token, UserDetails userDetails) {
         try {
             String username = extractUsername(token);
@@ -48,30 +42,19 @@ public class JwtService {
         }
     }
 
-    /**
-     * Extracts the username (subject) from the token.
-     */
     public String extractUsername(String token) {
         return decodeToken(token).getSubject();
     }
 
-    /**
-     * Extracts the user ID from the token.
-     */
     public Long extractUserId(String token) {
         return decodeToken(token).getClaim("id").asLong();
     }
 
-    /**
-     * Checks if the token is expired.
-     */
     private boolean isTokenExpired(String token) {
         return decodeToken(token).getExpiresAt().before(new Date());
     }
 
-    /**
-     * Decodes the token and returns the DecodedJWT object.
-     */
+
     private DecodedJWT decodeToken(String token) {
         JWTVerifier verifier = JWT.require(getAlgorithm()).build();
         return verifier.verify(token);
