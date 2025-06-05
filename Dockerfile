@@ -7,4 +7,4 @@ RUN apk add --no-cache maven
 
 RUN mvn -B -DskipTests clean install
 
-CMD ["java", "-jar", "target/asyncpayments-*.jar"]
+CMD ["java", "-jar", "target/asyncpayments-0.0.1-SNAPSHOT.jar"]
