@@ -110,10 +110,7 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
   ```
   GET /usuarios/me
   ```
-
-- **Coleção Insomnia:**  
-  Veja exemplos prontos em [`src/main/java/com/example/asyncpayments/async.json`](src/main/java/com/example/asyncpayments/async.json)
-
+  
 ## Dependências
 
 Veja todas as dependências em [`pom.xml`](pom.xml):
