@@ -1,8 +1,10 @@
 package com.example.asyncpayments.entity;
 
 import org.junit.jupiter.api.Test;
-import java.time.OffsetDateTime;
+
 import static org.junit.jupiter.api.Assertions.*;
+
+import java.time.OffsetDateTime;
 
 class ContaAssincronaTest {
 

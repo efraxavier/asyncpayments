@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import java.util.Optional;
 
@@ -44,7 +43,7 @@ class AuthControllerTest {
 
         ResponseEntity<AuthResponse> response = authController.register(req);
 
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals("token", response.getBody().token());
     }
 
@@ -58,7 +57,7 @@ class AuthControllerTest {
 
         ResponseEntity<AuthResponse> response = authController.login(req);
 
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals("token", response.getBody().token());
     }
 
@@ -69,7 +68,7 @@ class AuthControllerTest {
 
     ResponseEntity<AuthResponse> response = authController.login(req);
 
-    assertEquals(404, response.getStatusCodeValue());
+    assertEquals(404, response.getStatusCode().value());
     assertNull(response.getBody());
 }
 }

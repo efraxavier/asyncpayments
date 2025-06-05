@@ -45,7 +45,7 @@ void realizarTransacao_deveSalvarTransacao() {
     when(contaSincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
 
     Transacao salvo = transacaoService.realizarTransacao(
-            1L, 2L, 100.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET);
+            1L, 2L, 100.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET, null);
 
     assertNotNull(salvo);
     verify(transacaoRepository, atLeastOnce()).save(any(Transacao.class));
@@ -71,7 +71,7 @@ void realizarTransacao_contaOrigemNaoEncontrada_deveLancarExcecao() {
     when(contaSincronaRepository.findByUserId(2L)).thenReturn(new ContaSincrona());
 
     Exception ex = assertThrows(IllegalArgumentException.class, () ->
-        transacaoService.realizarTransacao(1L, 2L, 100.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET)
+        transacaoService.realizarTransacao(1L, 2L, 100.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET, null)
     );
     assertTrue(ex.getMessage().toLowerCase().contains("conta de origem ou destino não encontrada"));
 }
@@ -92,7 +92,7 @@ void realizarTransacao_valorInvalido_deveLancarExcecao() {
     when(contaSincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
 
     Exception ex = assertThrows(IllegalArgumentException.class, () ->
-        transacaoService.realizarTransacao(1L, 2L, 0.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET)
+        transacaoService.realizarTransacao(1L, 2L, 0.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET, null)
     );
 assertEquals("O valor da transação deve ser maior que zero.", ex.getMessage());}
 
@@ -107,7 +107,7 @@ void realizarTransacao_saldoInsuficiente_deveLancarExcecao() {
     when(contaSincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
 
     Exception ex = assertThrows(IllegalArgumentException.class, () ->
-        transacaoService.realizarTransacao(1L, 2L, 100.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET)
+        transacaoService.realizarTransacao(1L, 2L, 100.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET, null)
     );
     assertTrue(ex.getMessage().toLowerCase().contains("saldo insuficiente"));
 }
@@ -168,7 +168,7 @@ void realizarTransacao_contaDestinoNaoEncontrada_deveLancarExcecao() {
     when(contaSincronaRepository.findByUserId(2L)).thenReturn(null);
 
     Exception ex = assertThrows(IllegalArgumentException.class, () ->
-        transacaoService.realizarTransacao(1L, 2L, 100.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET)
+        transacaoService.realizarTransacao(1L, 2L, 100.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET, null)
     );
     assertTrue(ex.getMessage().toLowerCase().contains("conta de origem ou destino não encontrada"));
 }

@@ -7,13 +7,13 @@ import com.example.asyncpayments.entity.User;
 import com.example.asyncpayments.repository.UserRepository;
 import com.example.asyncpayments.service.AuthService;
 import com.example.asyncpayments.service.JwtService;
-import com.example.asyncpayments.service.UserService;
 
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -43,5 +43,15 @@ public class AuthController {
     String token = jwtService.generateToken(user, user.getId());
     return ResponseEntity.ok(new AuthResponse(token));
 }
+
+    @GetMapping("/user/id")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Long> getUserIdByEmail(@RequestParam String email) {
+        User user = repository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(user.getId());
+    }
 
 }
