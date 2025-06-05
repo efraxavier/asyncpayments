@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 class TransacaoControllerTest {
@@ -32,7 +33,7 @@ class TransacaoControllerTest {
     void listarTodasTransacoes_deveRetornarLista() {
         when(transacaoService.listarTodasTransacoes()).thenReturn(Collections.emptyList());
         ResponseEntity<List<Transacao>> response = transacaoController.listarTodasTransacoes();
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertNotNull(response.getBody());
     }
 
@@ -41,7 +42,7 @@ class TransacaoControllerTest {
         Transacao t = new Transacao();
         when(transacaoService.buscarTransacaoPorId(1L)).thenReturn(Optional.of(t));
         ResponseEntity<Transacao> response = transacaoController.buscarTransacaoPorId(1L);
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals(t, response.getBody());
     }
 
@@ -49,9 +50,9 @@ class TransacaoControllerTest {
     void criarTransacao_deveRetornarTransacao() {
         TransacaoRequest req = mock(TransacaoRequest.class);
         Transacao t = new Transacao();
-        when(transacaoService.realizarTransacao(any(), any(), any(), any(), any())).thenReturn(t);
+        when(transacaoService.realizarTransacao(any(), any(), any(), any(), any(), isNull())).thenReturn(t);
         ResponseEntity<?> response = transacaoController.criarTransacao(req);
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals(t, response.getBody());
     }
 }

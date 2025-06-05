@@ -51,7 +51,7 @@ public class TransacaoController {
                 request.getIdUsuarioDestino(),
                 request.getValor(),
                 request.getGatewayPagamento(),
-                request.getMetodoConexao(), // pode ser INTERNET ou ASYNC
+                request.getMetodoConexao(),
                 request.getDescricao()
             );
             return ResponseEntity.ok(transacao);

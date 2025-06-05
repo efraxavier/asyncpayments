@@ -41,7 +41,7 @@ class UserControllerTest {
 
         ResponseEntity<UserDTO> response = userController.getMe(authentication);
 
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals("me@email.com", response.getBody().getEmail());
     }
 
@@ -54,7 +54,7 @@ class UserControllerTest {
 
         ResponseEntity<?> response = userController.aceitarKyc(authentication);
 
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals("KYC aceito.", response.getBody());
         assertTrue(user.isKycValidado());
     }
@@ -74,7 +74,7 @@ class UserControllerTest {
 
         ResponseEntity<?> response = userController.anonimizar(authentication);
 
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals("Dados anonimizados.", response.getBody());
         assertNull(user.getNome());
         assertNull(user.getSobrenome());
@@ -90,7 +90,7 @@ void getMe_usuarioNaoEncontrado_deveRetornar404() {
 
     ResponseEntity<UserDTO> response = userController.getMe(authentication);
 
-    assertEquals(404, response.getStatusCodeValue());
+    assertEquals(404, response.getStatusCode().value());
     assertNull(response.getBody());
 }
 
@@ -101,7 +101,7 @@ void aceitarKyc_usuarioNaoEncontrado_deveRetornar404() {
 
     ResponseEntity<?> response = userController.aceitarKyc(authentication);
 
-    assertEquals(404, response.getStatusCodeValue());
+    assertEquals(404, response.getStatusCode().value());
 }
 @Test
 void listarUsuarios_deveRetornarLista() {
@@ -109,7 +109,7 @@ void listarUsuarios_deveRetornarLista() {
     user.setEmail("a@b.com");
     when(userRepository.findAll()).thenReturn(List.of(user));
     ResponseEntity<List<UserDTO>> response = userController.listarUsuarios();
-    assertEquals(200, response.getStatusCodeValue());
+    assertEquals(200, response.getStatusCode().value());
     assertFalse(response.getBody().isEmpty());
 }
 
@@ -117,7 +117,7 @@ void listarUsuarios_deveRetornarLista() {
 void buscarUsuarioPorId_usuarioNaoEncontrado_deveRetornar404() {
     when(userRepository.findById(1L)).thenReturn(Optional.empty());
     ResponseEntity<UserDTO> response = userController.buscarUsuarioPorId(1L);
-    assertEquals(404, response.getStatusCodeValue());
+    assertEquals(404, response.getStatusCode().value());
 }
 @Test
 void anonimizar_usuarioNaoEncontrado_deveRetornar404() {
@@ -126,6 +126,6 @@ void anonimizar_usuarioNaoEncontrado_deveRetornar404() {
 
     ResponseEntity<?> response = userController.anonimizar(authentication);
 
-    assertEquals(404, response.getStatusCodeValue());
+    assertEquals(404, response.getStatusCode().value());
 }
 }

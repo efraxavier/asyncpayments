@@ -9,7 +9,6 @@ import com.example.asyncpayments.entity.GatewayPagamento;
 import com.example.asyncpayments.repository.BlockchainRegistroRepository;
 import com.example.asyncpayments.repository.ContaAssincronaRepository;
 import com.example.asyncpayments.repository.ContaSincronaRepository;
-import com.example.asyncpayments.repository.BlockchainRegistroRepository;
 import com.example.asyncpayments.repository.TransacaoRepository;
 import com.example.asyncpayments.repository.UserRepository;
 import com.example.asyncpayments.entity.User;
@@ -83,7 +82,7 @@ public class TransacaoService {
                 if (contaSincrona == null || contaAssincrona == null) {
                     throw new IllegalArgumentException("Conta não encontrada para o usuário.");
                 }
-                if (contaSincrona.getSaldo() < valor) {
+                if (contaSincrona.getSaldo() == null || contaSincrona.getSaldo() < valor) {
                     throw new IllegalArgumentException("Saldo insuficiente na conta síncrona.");
                 }
 

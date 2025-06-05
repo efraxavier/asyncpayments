@@ -1,8 +1,10 @@
 package com.example.asyncpayments.entity;
 
 import org.junit.jupiter.api.Test;
-import java.time.OffsetDateTime;
+
 import static org.junit.jupiter.api.Assertions.*;
+
+import java.time.OffsetDateTime;
 
 class TransacaoTest {
 
@@ -40,7 +42,7 @@ class TransacaoTest {
         Transacao t = new Transacao(
                 2L, 11L, 21L, 200.0,
                 TipoTransacao.ASSINCRONA, MetodoConexao.SMS, GatewayPagamento.STRIPE,
-                now, now, false
+                null, now, now, false
         );
         assertEquals(2L, t.getId());
         assertEquals(11L, t.getIdUsuarioOrigem());

@@ -55,6 +55,7 @@ public class User implements UserDetails {
     @Column(length = 20)
     private String celular;
 
+    @Builder.Default
     @Column(name = "kyc_validado", nullable = false)
     private boolean kycValidado = false;
 

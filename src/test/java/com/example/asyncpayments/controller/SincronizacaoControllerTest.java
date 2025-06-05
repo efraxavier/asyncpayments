@@ -25,12 +25,12 @@ class SincronizacaoControllerTest {
     @Test
     void sincronizarContasManual_deveRetornarOk() {
         ResponseEntity<?> response = sincronizacaoController.sincronizarContasManual();
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
     }
 
     @Test
     void sincronizarContaPorId_deveRetornarOk() {
         ResponseEntity<?> response = sincronizacaoController.sincronizarContaPorId(1L);
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
     }
 }
