@@ -31,7 +31,6 @@ class TransacaoControllerIT {
 
 @Test
 void fluxoTransacaoEntreUsuarios() throws Exception {
-
     String random1 = String.valueOf(System.nanoTime());
     String emailOrigem = "origem" + random1 + "@mail.com";
     String cpfOrigem = random1.substring(0, 11);
@@ -42,7 +41,6 @@ void fluxoTransacaoEntreUsuarios() throws Exception {
                     .content(objectMapper.writeValueAsString(reqOrigem)))
                     .andReturn().getResponse().getContentAsString()
     ).get("token").asText();
-
 
     String random2 = String.valueOf(System.nanoTime());
     String emailDestino = "destino" + random2 + "@mail.com";
@@ -55,7 +53,6 @@ void fluxoTransacaoEntreUsuarios() throws Exception {
                     .andReturn().getResponse().getContentAsString()
     ).get("token").asText();
 
-
     Long idOrigem = objectMapper.readTree(
             mockMvc.perform(get("/usuarios/me").header("Authorization", "Bearer " + tokenOrigem))
                     .andReturn().getResponse().getContentAsString()
@@ -64,7 +61,6 @@ void fluxoTransacaoEntreUsuarios() throws Exception {
             mockMvc.perform(get("/usuarios/me").header("Authorization", "Bearer " + tokenDestino))
                     .andReturn().getResponse().getContentAsString()
     ).get("id").asLong();
-
 
     String payload = """
         {
@@ -82,8 +78,66 @@ void fluxoTransacaoEntreUsuarios() throws Exception {
             .header("Authorization", "Bearer " + tokenOrigem))
             .andExpect(status().isOk());
 
-
     mockMvc.perform(delete("/usuarios/me").header("Authorization", "Bearer " + tokenOrigem)).andExpect(status().isOk());
     mockMvc.perform(delete("/usuarios/me").header("Authorization", "Bearer " + tokenDestino)).andExpect(status().isOk());
+}
+
+@Test
+void realizarTransacao_limiteDiarioExcedido_deveRetornarErro() throws Exception {
+    String payload = """
+        {
+          "idUsuarioOrigem": 1,
+          "idUsuarioDestino": 2,
+          "valor": 1500.0,
+          "gatewayPagamento": "PAGARME",
+          "metodoConexao": "INTERNET"
+        }
+        """;
+
+    mockMvc.perform(post("/transacoes")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(payload)
+            .header("Authorization", "Bearer token"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Limite diário excedido"));
+}
+
+@Test
+void realizarTransacaoOffline_valorAcimaDe500_deveRetornarErro() throws Exception {
+    String payload = """
+        {
+          "idUsuarioOrigem": 1,
+          "idUsuarioDestino": 2,
+          "valor": 600.0,
+          "gatewayPagamento": "PAGARME",
+          "metodoConexao": "SMS"
+        }
+        """;
+
+    mockMvc.perform(post("/transacoes")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(payload)
+            .header("Authorization", "Bearer token"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Limite de R$500 por transação offline"));
+}
+
+@Test
+void realizarTransacao_valorAcimaDe10000_deveRetornarOk() throws Exception {
+    String payload = """
+        {
+          "idUsuarioOrigem": 1,
+          "idUsuarioDestino": 2,
+          "valor": 15000.0,
+          "gatewayPagamento": "PAGARME",
+          "metodoConexao": "INTERNET"
+        }
+        """;
+
+    mockMvc.perform(post("/transacoes")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(payload)
+            .header("Authorization", "Bearer token"))
+            .andExpect(status().isOk());
 }
 }

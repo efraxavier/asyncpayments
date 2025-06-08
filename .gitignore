@@ -77,3 +77,32 @@ application.yml
 
 # Coleção de testes/requests locais
 async.json
+
+# Ignorar arquivos de configuração sensíveis
+*.properties
+*.json
+*.yml
+*.yaml
+
+# Ignorar arquivos de documentação
+*.md
+*.txt
+doc/
+docs/
+
+# Ignorar arquivos de credenciais
+*.key
+*.pem
+*.crt
+
+# Ignorar arquivos gerados
+target/
+*.log
+*.dump
+*.tmp
+
+# Ignorar IDE e sistema operacional
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

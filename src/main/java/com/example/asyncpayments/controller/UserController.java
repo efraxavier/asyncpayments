@@ -6,12 +6,12 @@ import com.example.asyncpayments.entity.User;
 import com.example.asyncpayments.exception.NotFoundException;
 import com.example.asyncpayments.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -22,14 +22,12 @@ public class UserController {
 
     private final UserRepository userRepository;
 
-
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<List<UserDTO>> listarUsuarios() {
         List<UserDTO> usuariosDTO = userRepository.findAll().stream().map(this::toDTO).toList();
         return ResponseEntity.ok(usuariosDTO);
     }
-
 
     @GetMapping("/me")
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
@@ -37,15 +35,12 @@ public class UserController {
         String email = authentication.getName();
         return userRepository.findByEmail(email)
             .map(user -> {
-                // Força o carregamento das contas (caso seja LAZY)
-                if (user.getContaSincrona() != null) user.getContaSincrona().getSaldo();
-                if (user.getContaAssincrona() != null) user.getContaAssincrona().getSaldo();
+                carregarContas(user); // Carrega contas se necessário
                 return toDTO(user);
             })
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
-
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -56,31 +51,17 @@ public class UserController {
             .orElse(ResponseEntity.notFound().build());
     }
 
-
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserDTO>> atualizarUsuario(@PathVariable Long id, @RequestBody UserDTO userDTO) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
 
-
-        if (userRepository.findByEmail(userDTO.getEmail()).filter(u -> !u.getId().equals(id)).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new ApiResponse<>(null, "E-mail já cadastrado."));
-        }
-        if (userRepository.findByCpf(userDTO.getCpf()).filter(u -> !u.getId().equals(id)).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new ApiResponse<>(null, "CPF já cadastrado."));
-        }
-        user.setEmail(userDTO.getEmail());
-        user.setCpf(userDTO.getCpf());
-        user.setNome(userDTO.getNome());
-        user.setSobrenome(userDTO.getSobrenome());
-        user.setCelular(userDTO.getCelular());
+        validarEmailECpf(userDTO, id); // Validação centralizada
+        atualizarDadosUsuario(user, userDTO);
         userRepository.save(user);
         return ResponseEntity.ok(new ApiResponse<>(toDTO(user), null));
     }
-
 
     @PutMapping("/me")
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
@@ -89,34 +70,11 @@ public class UserController {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
 
-
-        if (userRepository.findByEmail(userDTO.getEmail()).filter(u -> !u.getId().equals(user.getId())).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new ApiResponse<>(null, "E-mail já cadastrado."));
-        }
-        if (userRepository.findByCpf(userDTO.getCpf()).filter(u -> !u.getId().equals(user.getId())).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new ApiResponse<>(null, "CPF já cadastrado."));
-        }
-        user.setEmail(userDTO.getEmail());
-        user.setCpf(userDTO.getCpf());
-        user.setNome(userDTO.getNome());
-        user.setSobrenome(userDTO.getSobrenome());
-        user.setCelular(userDTO.getCelular());
+        validarEmailECpf(userDTO, user.getId()); // Validação centralizada
+        atualizarDadosUsuario(user, userDTO);
         userRepository.save(user);
         return ResponseEntity.ok(new ApiResponse<>(toDTO(user), null));
     }
-
-@DeleteMapping("/{id}")
-@PreAuthorize("hasRole('ADMIN')")
-public ResponseEntity<ApiResponse<Void>> excluirUsuario(@PathVariable Long id) {
-    if (userRepository.existsById(id)) {
-        userRepository.deleteById(id);
-        return ResponseEntity.ok(new ApiResponse<Void>(null, "Usuário excluído com sucesso."));
-    }
-    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(new ApiResponse<Void>(null, "Usuário não encontrado."));
-}
 
 @DeleteMapping("/me")
 @PreAuthorize("hasAnyRole('USER','ADMIN')")
@@ -124,41 +82,33 @@ public ResponseEntity<ApiResponse<Void>> excluirMe(Authentication authentication
     String email = authentication.getName();
     return userRepository.findByEmail(email).map(user -> {
         userRepository.delete(user);
-        return ResponseEntity.ok(new ApiResponse<Void>(null, "Usuário excluído com sucesso."));
-    }).orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(new ApiResponse<Void>(null, "Usuário não encontrado.")));
+        return ResponseEntity.<ApiResponse<Void>>ok(new ApiResponse<>(null, "Usuário excluído com sucesso."));
+    }).orElse(ResponseEntity.<ApiResponse<Void>>status(HttpStatus.NOT_FOUND)
+            .body(new ApiResponse<>(null, "Usuário não encontrado.")));
 }
 
 
-    @PostMapping("/me/aceitar-kyc")
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
-    public ResponseEntity<?> aceitarKyc(Authentication authentication) {
-        String email = authentication.getName();
-        return userRepository.findByEmail(email).map(user -> {
-            user.setKycValidado(true);
-            userRepository.save(user);
-            return ResponseEntity.ok("KYC aceito.");
-        }).orElse(ResponseEntity.notFound().build());
+    private void validarEmailECpf(UserDTO userDTO, Long userId) {
+        if (userRepository.findByEmail(userDTO.getEmail()).filter(u -> !u.getId().equals(userId)).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "E-mail já cadastrado.");
+        }
+        if (userRepository.findByCpf(userDTO.getCpf()).filter(u -> !u.getId().equals(userId)).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CPF já cadastrado.");
+        }
     }
 
-
-    @PostMapping("/me/anonimizar")
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
-    public ResponseEntity<?> anonimizar(Authentication authentication) {
-        String email = authentication.getName();
-        return userRepository.findByEmail(email).map(user -> {
-            user.setNome(null);
-            user.setSobrenome(null);
-            user.setCelular(null);
-            user.setCpf(null);
-            user.setEmail(null);
-            user.setConsentimentoDados(false);
-
-            userRepository.save(user);
-            return ResponseEntity.ok("Dados anonimizados.");
-        }).orElse(ResponseEntity.notFound().build());
+    private void atualizarDadosUsuario(User user, UserDTO userDTO) {
+        user.setEmail(userDTO.getEmail());
+        user.setCpf(userDTO.getCpf());
+        user.setNome(userDTO.getNome());
+        user.setSobrenome(userDTO.getSobrenome());
+        user.setCelular(userDTO.getCelular());
     }
 
+    private void carregarContas(User user) {
+        if (user.getContaSincrona() != null) user.getContaSincrona().getSaldo();
+        if (user.getContaAssincrona() != null) user.getContaAssincrona().getSaldo();
+    }
 
     private UserDTO toDTO(User user) {
         UserDTO dto = new UserDTO();

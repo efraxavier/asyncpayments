@@ -4,6 +4,7 @@ import com.example.asyncpayments.entity.BlockchainRegistro;
 import com.example.asyncpayments.entity.ContaAssincrona;
 import com.example.asyncpayments.entity.ContaSincrona;
 import com.example.asyncpayments.entity.MetodoConexao;
+import com.example.asyncpayments.entity.TipoTransacao;
 import com.example.asyncpayments.entity.Transacao;
 import com.example.asyncpayments.entity.GatewayPagamento;
 import com.example.asyncpayments.repository.BlockchainRegistroRepository;
@@ -47,6 +48,7 @@ public class TransacaoService {
     private final ContaAssincronaRepository contaAssincronaRepository;
     private final ContaSincronaRepository contaSincronaRepository;
     private final BlockchainRegistroRepository blockchainRegistroRepository;
+    private final BlockchainService blockchainService;
     /**
      * Realiza uma transação entre contas, considerando regras de negócio para cada tipo de operação.
      * 
@@ -62,55 +64,35 @@ public class TransacaoService {
     public Transacao realizarTransacao(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor, GatewayPagamento gatewayPagamento, MetodoConexao metodoConexao, String descricao) {
         validarParametrosTransacao(idUsuarioOrigem, idUsuarioDestino, valor);
 
-        if (valor != null && valor > 10000.0) {
-            logger.warn("NOTIFICAÇÃO BACEN: Transação acima de R$10.000 detectada. Origem: {}, Destino: {}, Valor: {}. Notificação será enviada ao BACEN.",
-                idUsuarioOrigem, idUsuarioDestino, valor);
+        if (valor <= 10000.0) {
+            validarLimiteDiario(idUsuarioOrigem, valor);
         }
 
-        if (metodoConexao == MetodoConexao.INTERNET || metodoConexao == MetodoConexao.ASYNC) {
-            if (!(gatewayPagamento == GatewayPagamento.STRIPE ||
-                  gatewayPagamento == GatewayPagamento.PAGARME ||
-                  gatewayPagamento == GatewayPagamento.MERCADO_PAGO ||
-                  gatewayPagamento == GatewayPagamento.INTERNO)) {
-                throw new IllegalArgumentException("Para transações via INTERNET ou ASYNC, só são permitidos os gateways: STRIPE, PAGARME, MERCADO_PAGO e INTERNO.");
-            }
-            if (gatewayPagamento == GatewayPagamento.INTERNO && idUsuarioOrigem.equals(idUsuarioDestino)) {
-                // Transferência interna: debita da conta síncrona e credita na assíncrona
-                ContaSincrona contaSincrona = contaSincronaRepository.findByUserId(idUsuarioOrigem);
-                ContaAssincrona contaAssincrona = contaAssincronaRepository.findByUserId(idUsuarioDestino);
+        ContaSincrona contaOrigem = contaSincronaRepository.findByUserId(idUsuarioOrigem);
+        ContaSincrona contaDestino = contaSincronaRepository.findByUserId(idUsuarioDestino);
 
-                if (contaSincrona == null || contaAssincrona == null) {
-                    throw new IllegalArgumentException("Conta não encontrada para o usuário.");
-                }
-                if (contaSincrona.getSaldo() == null || contaSincrona.getSaldo() < valor) {
-                    throw new IllegalArgumentException("Saldo insuficiente na conta síncrona.");
-                }
+        if (contaOrigem == null || contaDestino == null) {
+            throw new IllegalArgumentException("Conta de origem ou destino não encontrada.");
+        }
 
-                logger.info("Antes da transação: saldo sincrona={}, saldo assincrona={}", contaSincrona.getSaldo(), contaAssincrona.getSaldo());
+        if (contaOrigem.getSaldo() < valor) {
+            throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
+        }
 
-                contaSincrona.setSaldo(contaSincrona.getSaldo() - valor);
-                contaAssincrona.setSaldo(contaAssincrona.getSaldo() + valor);
+        contaOrigem.setSaldo(contaOrigem.getSaldo() - valor);
+        contaDestino.setSaldo(contaDestino.getSaldo() + valor);
 
-                contaSincronaRepository.save(contaSincrona);
-                contaAssincronaRepository.save(contaAssincrona);
+        contaSincronaRepository.save(contaOrigem);
+        contaSincronaRepository.save(contaDestino);
 
-                logger.info("Depois da transação: saldo sincrona={}, saldo assincrona={}", contaSincrona.getSaldo(), contaAssincrona.getSaldo());
-            } else {
-                // Transferência entre contas síncronas
-                realizarTransacaoSincrona(idUsuarioOrigem, idUsuarioDestino, valor);
-            }
-        } else if (metodoConexao == MetodoConexao.SMS ||
-                   metodoConexao == MetodoConexao.NFC ||
-                   metodoConexao == MetodoConexao.BLUETOOTH) {
-            if (!(gatewayPagamento == GatewayPagamento.DREX ||
-                  gatewayPagamento == GatewayPagamento.PAGSEGURO ||
-                  gatewayPagamento == GatewayPagamento.PAYCERTIFY)) {
-                throw new IllegalArgumentException("Para transações offline (SMS, NFC, BLUETOOTH), só são permitidos os gateways: DREX, PAGSEGURO e PAYCERTIFY.");
-            }
-            realizarTransacaoAssincrona(idUsuarioOrigem, idUsuarioDestino, valor);
-
-        } else {
-            throw new IllegalArgumentException("Método de conexão inválido.");
+        if (valor > 10000.0) {
+            BlockchainRegistro registro = BlockchainRegistro.builder()
+                    .idUsuarioOrigem(idUsuarioOrigem)
+                    .idUsuarioDestino(idUsuarioDestino)
+                    .valor(valor)
+                    .hashTransacao(gerarHashSimples(idUsuarioOrigem, idUsuarioDestino, valor))
+                    .build();
+            blockchainService.registrarTransacao(registro);
         }
 
         Transacao transacao = new Transacao();
@@ -122,7 +104,7 @@ public class TransacaoService {
         transacao.setDescricao(descricao);
         transacao.setDataCriacao(OffsetDateTime.now(ZoneOffset.UTC));
 
-        return transacaoRepository.save(transacao);
+        return transacaoRepository.save(transacao); // Retorno do objeto salvo
     }
 
     /**
@@ -159,7 +141,7 @@ public class TransacaoService {
      * - RN09: Validação KYC para transações acima de R$500.
      * - RN08: Notificação ao BACEN para transações acima de R$10.000.
      */
-    private void realizarTransacaoAssincrona(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor) {
+    protected void realizarTransacaoAssincrona(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor) {
 
         if (valor > 500.0) {
             throw new IllegalArgumentException("Limite de R$500 por transação offline.");
@@ -235,11 +217,6 @@ public class TransacaoService {
             throw new IllegalArgumentException("O valor da transação deve ser maior que zero.");
         }
 
-        double totalHoje = getTotalTransferidoHoje(idUsuario);
-        if (totalHoje + valor > 1000.0) {
-            throw new IllegalArgumentException("Limite diário de R$1.000 para transferências entre contas atingido.");
-        }
-
         ContaSincrona contaSincrona = contaSincronaRepository.findByUserId(idUsuario);
         if (contaSincrona == null) {
             throw new IllegalArgumentException("Conta síncrona não encontrada para o usuário.");
@@ -254,10 +231,6 @@ public class TransacaoService {
             throw new IllegalArgumentException("Conta assíncrona não encontrada para o usuário.");
         }
 
-        if (contaAssincrona.isBloqueada()) {
-            throw new IllegalStateException("A conta assíncrona está bloqueada. Sincronize a conta para desbloqueá-la.");
-        }
-
         contaSincrona.setSaldo(contaSincrona.getSaldo() - valor);
         contaAssincrona.setSaldo(contaAssincrona.getSaldo() + valor);
 
@@ -269,7 +242,8 @@ public class TransacaoService {
         transacao.setIdUsuarioDestino(idUsuario);
         transacao.setValor(valor);
         transacao.setGatewayPagamento(GatewayPagamento.INTERNO);
-        transacao.setMetodoConexao(MetodoConexao.ASYNC); // ou INTERNET, conforme o caso
+        transacao.setMetodoConexao(MetodoConexao.ASYNC);
+        transacao.setTipoTransacao(TipoTransacao.ASSINCRONA); // Defina o tipo de transação
         transacao.setDataCriacao(OffsetDateTime.now(ZoneOffset.UTC));
 
         return transacaoRepository.save(transacao);
@@ -322,20 +296,19 @@ public class TransacaoService {
         contaAssincronaRepository.save(contaAssincrona);
     }
 
-    private void registrarTransacaoOfflineEmBlockchain(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor) {
-        String hash = gerarHashSimples(idUsuarioOrigem, idUsuarioDestino, valor, OffsetDateTime.now(ZoneOffset.UTC));
+    void registrarTransacaoOfflineEmBlockchain(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor) {
+        String hash = gerarHashSimples(idUsuarioOrigem, idUsuarioDestino, valor);
         BlockchainRegistro registro = BlockchainRegistro.builder()
                 .idUsuarioOrigem(idUsuarioOrigem)
                 .idUsuarioDestino(idUsuarioDestino)
                 .valor(valor)
-                .dataRegistro(OffsetDateTime.now(ZoneOffset.UTC))
                 .hashTransacao(hash)
                 .build();
-        blockchainRegistroRepository.save(registro);
+        blockchainService.registrarTransacao(registro);
     }
 
-    private String gerarHashSimples(Long origem, Long destino, Double valor, OffsetDateTime data) {
-        String raw = origem + "-" + destino + "-" + valor + "-" + data.toEpochSecond();
+    private String gerarHashSimples(Long origem, Long destino, Double valor) {
+        String raw = origem + "-" + destino + "-" + valor + "-" + System.currentTimeMillis();
         return Integer.toHexString(raw.hashCode());
     }
 
@@ -398,5 +371,54 @@ public class TransacaoService {
         transacao.setSincronizada(true);
         transacao.setDataAtualizacao(OffsetDateTime.now(ZoneOffset.UTC));
         return transacaoRepository.save(transacao);
+    }
+
+    public void sincronizarTransacoesOffline() {
+        List<Transacao> transacoesPendentes = transacaoRepository.findBySincronizadaFalse();
+
+        for (Transacao transacao : transacoesPendentes) {
+            try {
+                OffsetDateTime dataEnvio = transacao.getDataCriacao();
+                OffsetDateTime dataAtual = OffsetDateTime.now(ZoneOffset.UTC);
+
+                if (dataEnvio != null && java.time.Duration.between(dataEnvio, dataAtual).toHours() > 72) {
+                    transacao.setSincronizada(false);
+                    transacao.setDescricao("Rollback: Transação não sincronizada em 72h.");
+                    transacao.setDataAtualizacao(dataAtual);
+                    transacaoRepository.save(transacao);
+                    logger.warn("Transação {} negada: enviada após 72h.", transacao.getId());
+                    continue;
+                }
+
+                realizarTransacaoAssincrona(
+                    transacao.getIdUsuarioOrigem(),
+                    transacao.getIdUsuarioDestino(),
+                    transacao.getValor()
+                );
+
+                transacao.setSincronizada(true);
+                transacao.setDataAtualizacao(dataAtual);
+                transacaoRepository.save(transacao);
+                logger.info("Transação {} sincronizada com sucesso.", transacao.getId());
+            } catch (Exception e) {
+                logger.error("Erro ao sincronizar transação {}: {}", transacao.getId(), e.getMessage());
+            }
+        }
+    }
+
+    public List<Transacao> listarTransacoesEnviadas(String email) {
+        throw new UnsupportedOperationException("Unimplemented method 'listarTransacoesEnviadas'");
+    }
+
+    private void validarLimiteDiario(Long idUsuarioOrigem, Double valor) {
+        OffsetDateTime startDate = OffsetDateTime.now().minusDays(1);
+        OffsetDateTime endDate = OffsetDateTime.now();
+
+        List<Transacao> transacoes = transacaoRepository.findByIdUsuarioOrigemAndDataCriacaoBetween(idUsuarioOrigem, startDate, endDate);
+        double totalDiario = transacoes.stream().mapToDouble(Transacao::getValor).sum();
+
+        if (totalDiario + valor > 1000.0) {
+            throw new IllegalStateException("Limite diário excedido");
+        }
     }
 }

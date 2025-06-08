@@ -7,6 +7,8 @@ import com.example.asyncpayments.entity.UserRole;
 import com.example.asyncpayments.repository.ContaAssincronaRepository;
 import com.example.asyncpayments.repository.ContaSincronaRepository;
 import com.example.asyncpayments.repository.UserRepository;
+import com.example.asyncpayments.util.AnonimizationUtil;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +37,7 @@ public class UserService {
                 && sobrenome != null && !sobrenome.isBlank()
                 && celular != null && !celular.isBlank();
 
+        // Criar o objeto User
         User usuario = User.builder()
                 .email(email)
                 .password(senha)
@@ -47,19 +50,20 @@ public class UserService {
                 .consentimentoDados(consentimentoDados)
                 .build();
 
+        // Salvar o usuário no banco de dados
         usuario = userRepository.save(usuario);
 
-
+        // Criar e salvar ContaSincrona
         ContaSincrona contaSincrona = new ContaSincrona(100.0, usuario);
         contaSincrona = contaSincronaRepository.save(contaSincrona);
         usuario.setContaSincrona(contaSincrona);
 
-
+        // Criar e salvar ContaAssincrona
         ContaAssincrona contaAssincrona = new ContaAssincrona(0.0, usuario);
         contaAssincrona = contaAssincronaRepository.save(contaAssincrona);
         usuario.setContaAssincrona(contaAssincrona);
 
-
+        // Atualizar o usuário com as contas associadas
         return userRepository.save(usuario);
     }
 

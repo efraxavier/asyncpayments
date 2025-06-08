@@ -2,142 +2,140 @@
 
 AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagamentos síncronos e assíncronos, com autenticação JWT, integração com gateways de pagamento e suporte a múltiplos métodos de conexão (INTERNET, BLUETOOTH, SMS, NFC, ASYNC).
 
-## Funcionalidades
+---
 
-- Cadastro e autenticação de usuários com JWT
-- Criação automática de contas síncrona e assíncrona para cada usuário
-- Realização de transações entre contas (síncronas e assíncronas)
-- Transferência entre contas do mesmo usuário (síncrona → assíncrona)
-- Listagem de usuários e transações
-- Sincronização manual e automática de contas assíncronas
-- Bloqueio automático de contas assíncronas inativas
-- Integração com gateways de pagamento (STRIPE, PAGARME, MERCADO_PAGO, INTERNO, DREX, PAGSEGURO, PAYCERTIFY)
-- Logging detalhado e tratamento global de exceções
+## **Funcionalidades**
 
-## Endpoints
+- **Autenticação e Cadastro**:
+  - Registro de usuários com criação automática de contas síncronas e assíncronas.
+  - Autenticação com JWT.
+  - Exclusão de usuários autenticados.
 
-### Autenticação
+- **Transações**:
+  - Realização de transações entre contas (síncronas e assíncronas).
+  - Transferência entre contas do mesmo usuário (síncrona → assíncrona).
+  - Listagem de transações enviadas e recebidas.
+  - Sincronização de transações offline.
+
+- **Sincronização de Contas**:
+  - Sincronização manual e automática de contas assíncronas.
+  - Bloqueio automático de contas assíncronas inativas.
+
+- **Integração com Gateways de Pagamento**:
+  - Suporte a múltiplos gateways: STRIPE, PAGARME, MERCADO_PAGO, INTERNO, DREX, PAGSEGURO, PAYCERTIFY.
+
+---
+
+## **Endpoints**
+
+### **Autenticação**
 
 - `POST /auth/register`  
-  Registra um novo usuário  
+  Registra um novo usuário.  
   **Body:**  
   ```json
-  { "email": "user@email.com", "password": "senha", "role": "USER" }
+  {
+    "email": "user@email.com",
+    "password": "senha",
+    "cpf": "12345678901",
+    "nome": "Nome",
+    "sobrenome": "Sobrenome",
+    "celular": "11999999999",
+    "role": "USER",
+    "consentimentoDados": true
+  }
   ```
 
 - `POST /auth/login`  
-  Realiza login e retorna JWT  
+  Realiza login e retorna JWT.  
   **Body:**  
   ```json
-  { "email": "user@email.com", "password": "senha" }
+  {
+    "email": "user@email.com",
+    "password": "senha"
+  }
   ```
 
-- `GET /auth/me/id`  
-  Retorna o ID do usuário autenticado
-
 - `GET /auth/user/id?email=...`  
-  Retorna o ID de um usuário pelo e-mail
+  Retorna o ID de um usuário pelo e-mail.
 
-### Usuários
+---
 
-- `GET /usuarios/listar`  
-  Lista todos os usuários com suas contas
+### **Usuários**
+
+- `GET /usuarios`  
+  Lista todos os usuários com suas contas (somente ADMIN).
 
 - `GET /usuarios/me`  
-  Retorna dados e saldos do usuário autenticado (útil para checar saldo após transações internas ou assíncronas)
+  Retorna dados e saldos do usuário autenticado.
 
-### Transações
+- `PUT /usuarios/me`  
+  Atualiza os dados do usuário autenticado.  
+  **Body:**  
+  ```json
+  {
+    "email": "novo@email.com",
+    "cpf": "12345678901",
+    "nome": "Novo Nome",
+    "sobrenome": "Novo Sobrenome",
+    "celular": "11999999999"
+  }
+  ```
 
-- `GET /transacoes/todas`  
-  Lista todas as transações
+- `DELETE /usuarios/me`  
+  Exclui o usuário autenticado.
 
-- `POST /transacoes/realizar`  
-  Realiza uma transação entre contas  
+---
+
+### **Transações**
+
+- `POST /transacoes`  
+  Realiza uma transação entre contas.  
   **Body:**  
   ```json
   {
     "idUsuarioOrigem": 1,
     "idUsuarioDestino": 2,
     "valor": 50.0,
+    "gatewayPagamento": "STRIPE",
     "metodoConexao": "INTERNET",
-    "gatewayPagamento": "STRIPE"
-  }
-  ```
-
-- `POST /transacoes`  
-  Realiza uma transação (síncrona, assíncrona ou interna).  
-  **Exemplo de depósito interno (conta síncrona → assíncrona):**
-  ```json
-  {
-    "idUsuarioOrigem": 1,
-    "idUsuarioDestino": 1,
-    "valor": 50.0,
-    "gatewayPagamento": "INTERNO",
-    "metodoConexao": "ASYNC",
-    "descricao": "Depósito interno para conta assíncrona"
+    "descricao": "Pagamento de serviço"
   }
   ```
 
 - `GET /transacoes/recebidas`  
-  Lista transações recebidas pelo usuário autenticado
+  Lista transações recebidas pelo usuário autenticado.
 
-### Sincronização
+- `GET /transacoes/enviadas`  
+  Lista transações enviadas pelo usuário autenticado.
 
-- `POST /sincronizacao/manual`  
-  Sincroniza todas as contas assíncronas manualmente
-
-- `POST /sincronizacao/manual/{id}`  
-  Sincroniza uma conta assíncrona específica pelo ID
-
-- `POST /sincronizacao/me`  
-  Sincroniza a conta assíncrona do usuário autenticado
-
-## Exemplos de uso (Insomnia/JSON)
-
-- **Depositar da conta síncrona para a assíncrona do mesmo usuário:**
+- `POST /transacoes/adicionar-fundos`  
+  Transfere saldo da conta síncrona para a assíncrona do mesmo usuário.  
+  **Body:**  
   ```json
   {
-    "idUsuarioOrigem": 1,
-    "idUsuarioDestino": 1,
-    "valor": 50.0,
-    "gatewayPagamento": "INTERNO",
-    "metodoConexao": "ASYNC",
-    "descricao": "Depósito interno para conta assíncrona"
+    "valor": 100.0
   }
   ```
 
-- **Buscar usuário autenticado e saldos:**
-  ```
-  GET /usuarios/me
-  ```
-  
-## Dependências
+---
 
-Veja todas as dependências em [`pom.xml`](pom.xml):
+### **Sincronização**
 
-- Java 21
-- Spring Boot 3.4.4
-- Spring Data JPA
-- Spring Security
-- JWT (com.auth0:java-jwt)
-- Lombok
-- H2 Database (testes)
-- PostgreSQL (produção)
-- Stripe Java SDK
-- Jakarta Validation
+- `POST /sincronizacao/manual`  
+  Sincroniza todas as contas assíncronas manualmente (somente ADMIN).
 
-## Como clonar, instalar e rodar
+- `POST /sincronizacao/manual/{id}`  
+  Sincroniza uma conta assíncrona específica pelo ID (somente ADMIN).
 
-### 1. Clone o repositório
+- `POST /sincronizacao/me`  
+  Sincroniza a conta assíncrona do usuário autenticado.
 
-```sh
-git clone https://github.com/seu-usuario/asyncpayments.git
-cd asyncpayments
-```
+## **Configuração**
 
-### 2. Configure o banco de dados
+### **Banco de Dados**
 
-Edite [`src/main/resources/application.properties`](src/main/resources/application.properties) para ajustar as credenciais do banco de dados PostgreSQL:
+Edite o arquivo [`application.properties`](src/main/resources/application.properties) para configurar o banco de dados PostgreSQL:
 
 ```
 spring.datasource.url=jdbc:postgresql://localhost:5432/asyncpayments
@@ -145,42 +143,50 @@ spring.datasource.username=postgres
 spring.datasource.password=passwordtest
 ```
 
-> Para testes, o H2 Database pode ser usado (já configurado no projeto).
+Para testes, o H2 Database já está configurado.
 
-### 3. Instale as dependências
+---
 
-```sh
-./mvnw clean install
-```
-ou
-```sh
-mvn clean install
-```
+## **Instalação**
 
-### 4. Rode a aplicação
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/seu-usuario/asyncpayments.git
+   cd asyncpayments
+   ```
 
-```sh
-./mvnw spring-boot:run
-```
-ou
-```sh
-mvn spring-boot:run
-```
+2. Instale as dependências:
+   ```bash
+   ./mvnw clean install
+   ```
+
+3. Rode a aplicação:
+   ```bash
+   ./mvnw spring-boot:run
+   ```
 
 A aplicação estará disponível em [http://localhost:8080](http://localhost:8080).
 
-### 5. Teste os endpoints
+---
 
-Utilize Postman, Insomnia ou cURL para testar os endpoints descritos acima.
+## **Testes**
 
-## Estrutura do Projeto
+Execute os testes automatizados com:
+```bash
+./mvnw test
+```
 
-- Código principal: [`src/main/java/com/example/asyncpayments/AsyncpaymentsApplication.java`](src/main/java/com/example/asyncpayments/AsyncpaymentsApplication.java)
-- Configurações: [`src/main/resources/application.properties`](src/main/resources/application.properties)
-- Testes: [`src/test/java/com/example/asyncpayments/`](src/test/java/com/example/asyncpayments/)
-- Coleção de exemplos para Insomnia: [`src/main/java/com/example/asyncpayments/async.json`](src/main/java/com/example/asyncpayments/async.json)
+---
 
-## Licença
+## **Estrutura do Projeto**
+
+- **Código principal**: [`src/main/java/com/example/asyncpayments/`](src/main/java/com/example/asyncpayments/)
+- **Configurações**: [`src/main/resources/application.properties`](src/main/resources/application.properties)
+- **Testes**: [`src/test/java/com/example/asyncpayments/`](src/test/java/com/example/asyncpayments/)
+
+---
+
+## **Licença**
 
 Este projeto está sob a licença MIT.
 

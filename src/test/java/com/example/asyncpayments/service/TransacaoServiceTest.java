@@ -6,7 +6,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
 
+import java.lang.reflect.Method;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +23,7 @@ class TransacaoServiceTest {
     @Mock private ContaAssincronaRepository contaAssincronaRepository;
     @Mock private ContaSincronaRepository contaSincronaRepository;
     @Mock private BlockchainRegistroRepository blockchainRegistroRepository;
+    @Mock private BlockchainService blockchainService;
 
     @InjectMocks
     private TransacaoService transacaoService;
@@ -171,5 +174,97 @@ void realizarTransacao_contaDestinoNaoEncontrada_deveLancarExcecao() {
         transacaoService.realizarTransacao(1L, 2L, 100.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET, null)
     );
     assertTrue(ex.getMessage().toLowerCase().contains("conta de origem ou destino não encontrada"));
+}
+@Test
+void registrarTransacaoOfflineEmBlockchain_deveRegistrarTransacao() throws Exception {
+    Method method = TransacaoService.class.getDeclaredMethod("registrarTransacaoOfflineEmBlockchain", Long.class, Long.class, Double.class);
+    method.setAccessible(true);
+
+    method.invoke(transacaoService, 1L, 2L, 100.0);
+
+    verify(blockchainService).registrarTransacao(any(BlockchainRegistro.class));
+}
+
+@Test
+void realizarTransacaoAssincrona_deveRegistrarTransacaoNoBlockchain() {
+    ContaAssincrona contaOrigem = new ContaAssincrona();
+    contaOrigem.setSaldo(1000.0);
+    ContaAssincrona contaDestino = new ContaAssincrona();
+    contaDestino.setSaldo(500.0);
+
+    when(contaAssincronaRepository.findByUserId(1L)).thenReturn(contaOrigem);
+    when(contaAssincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
+
+    transacaoService.realizarTransacaoAssincrona(1L, 2L, 100.0);
+
+    verify(blockchainService).registrarTransacao(any(BlockchainRegistro.class));
+}
+
+@Test
+void processarTransacaoOffline_deveRegistrarTransacaoNoBlockchain() {
+    // Configuração inicial
+    Transacao transacao = new Transacao();
+    transacao.setId(1L);
+    transacao.setIdUsuarioOrigem(1L);
+    transacao.setIdUsuarioDestino(2L);
+    transacao.setValor(100.0);
+    transacao.setSincronizada(false);
+    transacao.setDataCriacao(OffsetDateTime.now(ZoneOffset.UTC).minusHours(1));
+
+    ContaAssincrona contaOrigem = new ContaAssincrona();
+    contaOrigem.setSaldo(500.0);
+    ContaAssincrona contaDestino = new ContaAssincrona();
+    contaDestino.setSaldo(300.0);
+
+    // Mockando dependências
+    when(transacaoRepository.findById(1L)).thenReturn(Optional.of(transacao));
+    when(contaAssincronaRepository.findByUserId(1L)).thenReturn(contaOrigem);
+    when(contaAssincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
+
+    // Executando o método público
+    transacaoService.processarTransacaoOffline(1L, OffsetDateTime.now(ZoneOffset.UTC));
+
+    // Verificando interações
+    verify(blockchainService).registrarTransacao(any(BlockchainRegistro.class));
+    verify(transacaoRepository).save(any(Transacao.class));
+}
+
+@Test
+void realizarTransacao_limiteDiarioExcedido_deveNegar() {
+    OffsetDateTime startDate = OffsetDateTime.now().minusDays(1);
+    OffsetDateTime endDate = OffsetDateTime.now();
+
+    when(transacaoRepository.findByIdUsuarioOrigemAndDataCriacaoBetween(anyLong(), eq(startDate), eq(endDate)))
+        .thenReturn(List.of(
+            new Transacao(1L, 1L, 2L, 800.0, null, null, null, null, null, null, true),
+            new Transacao(2L, 1L, 2L, 300.0, null, null, null, null, null, null, true)
+        ));
+
+    Exception ex = assertThrows(IllegalStateException.class, () ->
+        transacaoService.realizarTransacao(1L, 2L, 500.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET, null)
+    );
+    assertTrue(ex.getMessage().contains("Limite diário excedido"));
+}
+
+@Test
+void realizarTransacaoOffline_valorAcimaDe500_deveNegar() {
+    Exception ex = assertThrows(IllegalArgumentException.class, () ->
+        transacaoService.realizarTransacaoAssincrona(1L, 2L, 600.0)
+    );
+    assertTrue(ex.getMessage().contains("Limite de R$500 por transação offline"));
+}
+@Test
+void realizarTransacao_valorAcimaDe10000_deveNotificarBACEN() {
+    ContaSincrona contaOrigem = new ContaSincrona();
+    contaOrigem.setSaldo(20000.0);
+    ContaSincrona contaDestino = new ContaSincrona();
+    contaDestino.setSaldo(5000.0);
+
+    when(contaSincronaRepository.findByUserId(1L)).thenReturn(contaOrigem);
+    when(contaSincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
+
+    transacaoService.realizarTransacao(1L, 2L, 15000.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET, null);
+
+    verify(blockchainService).registrarTransacao(any(BlockchainRegistro.class));
 }
 }

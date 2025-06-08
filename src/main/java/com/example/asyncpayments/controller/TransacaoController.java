@@ -4,6 +4,7 @@ import com.example.asyncpayments.dto.TransacaoRequest;
 import com.example.asyncpayments.entity.Transacao;
 import com.example.asyncpayments.repository.UserRepository;
 import com.example.asyncpayments.service.TransacaoService;
+import com.example.asyncpayments.service.FilaTransacaoService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +24,8 @@ import org.springframework.web.bind.annotation.*;
 public class TransacaoController {
 
     private final TransacaoService transacaoService;
-    private final UserRepository userRepository; // Adicione esta linha
-
+    private final UserRepository userRepository;
+    private final FilaTransacaoService filaTransacaoService;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -86,16 +87,9 @@ public class TransacaoController {
 
     @PostMapping("/sincronizar-offline")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> sincronizarOffline(@RequestBody List<Long> idsTransacoes) {
-        OffsetDateTime agora = OffsetDateTime.now(ZoneOffset.UTC);
-        for (Long id : idsTransacoes) {
-            try {
-                transacaoService.processarTransacaoOffline(id, agora);
-            } catch (Exception e) {
-
-            }
-        }
-        return ResponseEntity.ok("Transações offline processadas.");
+    public ResponseEntity<String> sincronizarTransacoesOffline() {
+        transacaoService.sincronizarTransacoesOffline();
+        return ResponseEntity.ok("Transações offline sincronizadas com sucesso.");
     }
 
     @GetMapping("/recebidas")
@@ -112,5 +106,38 @@ public class TransacaoController {
             .filter(t -> t.getIdUsuarioDestino().equals(userId))
             .toList();
         return ResponseEntity.ok(recebidas);
+    }
+
+    @GetMapping("/enviadas")
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    public ResponseEntity<List<Transacao>> listarTransacoesEnviadas(Authentication authentication) {
+        String email = authentication.getName();
+        List<Transacao> transacoes = transacaoService.listarTransacoesEnviadas(email);
+        return ResponseEntity.ok(transacoes);
+    }
+
+    @PostMapping("/adicionar-fundos")
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    public ResponseEntity<?> adicionarFundos(Authentication authentication, @RequestBody TransacaoRequest request) {
+        String email = authentication.getName();
+        var userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Long userId = userOpt.get().getId();
+        try {
+            Transacao transacao = transacaoService.transferirSincronaParaAssincrona(userId, request.getValor());
+            return ResponseEntity.ok(transacao);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro interno: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/status")
+    public ResponseEntity<String> consultarStatus(@PathVariable Long id) {
+        String status = filaTransacaoService.consultarStatus(id);
+        return ResponseEntity.ok("Status da transação " + id + ": " + status);
     }
 }

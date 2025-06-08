@@ -29,5 +29,5 @@ public class TransacaoRequest {
     @NotNull(message = "O gateway de pagamento é obrigatório.")
     private GatewayPagamento gatewayPagamento;
 
-    private String descricao; // <-- Novo campo
+    private String descricao;
 }
