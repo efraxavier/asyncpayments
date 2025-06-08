@@ -114,7 +114,29 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
   **Body:**  
   ```json
   {
-    "valor": 100.0
+    "idUsuarioOrigem": 20,
+    "idUsuarioDestino": 20,
+    "valor": 3.0,
+    "metodoConexao": "ASYNC",
+    "gatewayPagamento": "INTERNO",
+    "descricao": "Adição de fundos à conta assíncrona"
+  }
+  ```
+
+  **Resposta:**  
+  ```json
+  {
+    "id": 57,
+    "idUsuarioOrigem": 20,
+    "idUsuarioDestino": 20,
+    "valor": 3.0,
+    "tipoTransacao": "ASSINCRONA",
+    "metodoConexao": "ASYNC",
+    "gatewayPagamento": "INTERNO",
+    "descricao": null,
+    "dataCriacao": "2025-06-08T00:22:55.6432361Z",
+    "dataAtualizacao": "2025-06-08T00:22:55.6432361Z",
+    "sincronizada": false
   }
   ```
 
@@ -130,6 +152,8 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
 
 - `POST /sincronizacao/me`  
   Sincroniza a conta assíncrona do usuário autenticado.
+
+---
 
 ## **Configuração**
 
