@@ -15,7 +15,7 @@ class ContaAssincronaTest {
 
         assertEquals(50.0, conta.getSaldo());
         assertEquals(user, conta.getUser());
-        assertEquals(TipoConta.ASSINCRONA, conta.getTipoConta());
+        assertEquals(TipoOperacao.ASSINCRONA, conta.getTipoOperacao());
     }
 
     @Test

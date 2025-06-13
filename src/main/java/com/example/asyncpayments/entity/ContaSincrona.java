@@ -16,7 +16,7 @@ public class ContaSincrona extends Conta {
     }
 
     @Override
-    public TipoConta getTipoConta() {
-        return TipoConta.SINCRONA;
+    public TipoOperacao getTipoOperacao() {
+        return TipoOperacao.SINCRONA;
     }
 }

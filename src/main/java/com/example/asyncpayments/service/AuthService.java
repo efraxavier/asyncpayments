@@ -8,11 +8,13 @@ import com.example.asyncpayments.entity.UserRole;
 import com.example.asyncpayments.repository.UserRepository;
 import com.example.asyncpayments.util.UserFakerUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -26,11 +28,11 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.findByEmail(request.email()).isPresent()) {
-        throw new IllegalArgumentException("E-mail já cadastrado.");
-    }
-    if (userRepository.findByCpf(request.cpf()).isPresent()) {
-        throw new IllegalArgumentException("CPF já cadastrado.");
-    }
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "E-mail já cadastrado.");
+        }
+        if (userRepository.findByCpf(request.cpf()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CPF já cadastrado.");
+        }
         System.out.println("RegisterRequest recebido: " + request);
 
         User user = userService.criarUsuario(

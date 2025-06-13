@@ -44,4 +44,45 @@ class SincronizacaoControllerIT {
         mockMvc.perform(delete("/usuarios/me").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void sincronizacaoManualBasica() throws Exception {
+        String random = String.valueOf(System.nanoTime());
+        String adminEmail = "admin" + random + "@mail.com";
+        String adminCpf = random.substring(0, 11);
+        RegisterRequest adminReq = new RegisterRequest(adminEmail, "123456", adminCpf, "Admin", "User", "11999999999", "ADMIN", true);
+        String adminToken = objectMapper.readTree(
+                mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(adminReq)))
+                        .andReturn().getResponse().getContentAsString()
+        ).get("token").asText();
+
+        mockMvc.perform(post("/sincronizacao/manual")
+                .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/usuarios/me").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void sincronizacaoManualSemPermissao_deveRetornar403() throws Exception {
+        String random = String.valueOf(System.nanoTime());
+        String email = "user" + random + "@mail.com";
+        String cpf = random.substring(0, 11);
+        RegisterRequest req = new RegisterRequest(email, "123456", cpf, "Nome", "Sobrenome", "11999999999", "USER", true);
+        String token = objectMapper.readTree(
+                mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                        .andReturn().getResponse().getContentAsString()
+        ).get("token").asText();
+
+        mockMvc.perform(post("/sincronizacao/manual")
+                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(delete("/usuarios/me").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+    }
 }

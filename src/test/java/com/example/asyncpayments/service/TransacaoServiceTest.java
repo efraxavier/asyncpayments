@@ -1,5 +1,6 @@
 package com.example.asyncpayments.service;
 
+import com.example.asyncpayments.dto.TransactionResponse;
 import com.example.asyncpayments.entity.*;
 import com.example.asyncpayments.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,14 +17,28 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-class TransacaoServiceTest {
+public class TransacaoServiceTest {
 
-    @Mock private UserRepository userRepository;
-    @Mock private TransacaoRepository transacaoRepository;
-    @Mock private ContaAssincronaRepository contaAssincronaRepository;
-    @Mock private ContaSincronaRepository contaSincronaRepository;
-    @Mock private BlockchainRegistroRepository blockchainRegistroRepository;
-    @Mock private BlockchainService blockchainService;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private TransacaoRepository transacaoRepository;
+    @Mock
+    private ContaAssincronaRepository contaAssincronaRepository;
+    @Mock
+    private ContaSincronaRepository contaSincronaRepository;
+    @Mock
+    private BlockchainRegistroRepository blockchainRegistroRepository;
+    @Mock
+    private BlockchainService blockchainService;
+    @Mock
+    private FilaTransacaoService filaTransacaoService;
+    @Mock
+    private SincronizacaoService sincronizacaoService;
+    @Mock
+    private TransactionResponse transactionResponse;
+    @Mock
+    private TransacaoAltoValorRepository transacaoAltoValorRepository; 
 
     @InjectMocks
     private TransacaoService transacaoService;
@@ -36,7 +51,7 @@ class TransacaoServiceTest {
     @Test
 void realizarTransacao_deveSalvarTransacao() {
     Transacao transacao = new Transacao();
-    transacao.setId(1L);
+    transacao.setId(123L); 
     when(transacaoRepository.save(any(Transacao.class))).thenReturn(transacao);
 
     ContaSincrona contaOrigem = new ContaSincrona();
@@ -55,18 +70,19 @@ void realizarTransacao_deveSalvarTransacao() {
 }
 
     @Test
-    void processarTransacaoOffline_transacaoApos72h_deveNegar() {
-        Transacao transacao = new Transacao();
-        transacao.setId(1L);
-        transacao.setSincronizada(false);
-        transacao.setDataCriacao(OffsetDateTime.now().minusHours(80));
-        when(transacaoRepository.findById(1L)).thenReturn(Optional.of(transacao));
+void processarTransacaoOffline_transacaoApos72h_deveNegar() {
+    Transacao transacao = new Transacao();
+    transacao.setId(1L);
+    transacao.setStatus(StatusTransacao.PENDENTE);
+    transacao.setDataCriacao(OffsetDateTime.now().minusHours(80));
+    when(transacaoRepository.findById(1L)).thenReturn(Optional.of(transacao));
 
-        Exception ex = assertThrows(IllegalStateException.class, () ->
-                transacaoService.processarTransacaoOffline(1L, OffsetDateTime.now())
-        );
-        assertTrue(ex.getMessage().contains("após 72h"));
-    }
+    Exception ex = assertThrows(IllegalStateException.class, () ->
+            transacaoService.processarTransacaoOffline(1L, OffsetDateTime.now())
+    );
+    assertEquals(StatusTransacao.ROLLBACK, transacao.getStatus());
+    assertTrue(ex.getMessage().contains("após 72h"));
+}
 
     @Test
 void realizarTransacao_contaOrigemNaoEncontrada_deveLancarExcecao() {
@@ -122,28 +138,20 @@ void processarTransacaoOffline_transacaoDentroDoPrazo_deveSincronizar() {
     transacao.setIdUsuarioOrigem(1L);
     transacao.setIdUsuarioDestino(2L);
     transacao.setValor(100.0);
-    transacao.setSincronizada(false);
+    transacao.setStatus(StatusTransacao.PENDENTE);
     transacao.setDataCriacao(OffsetDateTime.now().minusHours(10));
-    transacao.setTipoTransacao(TipoTransacao.SINCRONA);
 
-    ContaSincrona contaOrigem = new ContaSincrona();
-    contaOrigem.setSaldo(1000.0);
-    ContaSincrona contaDestino = new ContaSincrona();
-    contaDestino.setSaldo(500.0);
+    ContaAssincrona contaOrigem = new ContaAssincrona();
+    contaOrigem.setSaldo(500.0);
+    ContaAssincrona contaDestino = new ContaAssincrona();
+    contaDestino.setSaldo(300.0);
 
     when(transacaoRepository.findById(1L)).thenReturn(Optional.of(transacao));
-    when(transacaoRepository.save(any(Transacao.class))).thenReturn(transacao);
-    when(contaSincronaRepository.findByUserId(1L)).thenReturn(contaOrigem);
-    when(contaSincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
+    when(contaAssincronaRepository.findByUserId(1L)).thenReturn(contaOrigem);
+    when(contaAssincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
 
-
-    ContaAssincrona contaAssincronaOrigem = new ContaAssincrona();
-    contaAssincronaOrigem.setSaldo(1000.0);
-    ContaAssincrona contaAssincronaDestino = new ContaAssincrona();
-    contaAssincronaDestino.setSaldo(500.0); 
-    when(contaAssincronaRepository.findByUserId(1L)).thenReturn(contaAssincronaOrigem);
-    when(contaAssincronaRepository.findByUserId(2L)).thenReturn(contaAssincronaDestino);
     assertDoesNotThrow(() -> transacaoService.processarTransacaoOffline(1L, OffsetDateTime.now()));
+    assertEquals(StatusTransacao.SINCRONIZADA, transacao.getStatus());
     verify(transacaoRepository).save(any(Transacao.class));
 }
 
@@ -176,16 +184,6 @@ void realizarTransacao_contaDestinoNaoEncontrada_deveLancarExcecao() {
     assertTrue(ex.getMessage().toLowerCase().contains("conta de origem ou destino não encontrada"));
 }
 @Test
-void registrarTransacaoOfflineEmBlockchain_deveRegistrarTransacao() throws Exception {
-    Method method = TransacaoService.class.getDeclaredMethod("registrarTransacaoOfflineEmBlockchain", Long.class, Long.class, Double.class);
-    method.setAccessible(true);
-
-    method.invoke(transacaoService, 1L, 2L, 100.0);
-
-    verify(blockchainService).registrarTransacao(any(BlockchainRegistro.class));
-}
-
-@Test
 void realizarTransacaoAssincrona_deveRegistrarTransacaoNoBlockchain() {
     ContaAssincrona contaOrigem = new ContaAssincrona();
     contaOrigem.setSaldo(1000.0);
@@ -202,13 +200,13 @@ void realizarTransacaoAssincrona_deveRegistrarTransacaoNoBlockchain() {
 
 @Test
 void processarTransacaoOffline_deveRegistrarTransacaoNoBlockchain() {
-    // Configuração inicial
+    
     Transacao transacao = new Transacao();
     transacao.setId(1L);
     transacao.setIdUsuarioOrigem(1L);
     transacao.setIdUsuarioDestino(2L);
     transacao.setValor(100.0);
-    transacao.setSincronizada(false);
+    transacao.setStatus(StatusTransacao.PENDENTE); 
     transacao.setDataCriacao(OffsetDateTime.now(ZoneOffset.UTC).minusHours(1));
 
     ContaAssincrona contaOrigem = new ContaAssincrona();
@@ -216,15 +214,15 @@ void processarTransacaoOffline_deveRegistrarTransacaoNoBlockchain() {
     ContaAssincrona contaDestino = new ContaAssincrona();
     contaDestino.setSaldo(300.0);
 
-    // Mockando dependências
+    
     when(transacaoRepository.findById(1L)).thenReturn(Optional.of(transacao));
     when(contaAssincronaRepository.findByUserId(1L)).thenReturn(contaOrigem);
     when(contaAssincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
 
-    // Executando o método público
+    
     transacaoService.processarTransacaoOffline(1L, OffsetDateTime.now(ZoneOffset.UTC));
 
-    // Verificando interações
+    
     verify(blockchainService).registrarTransacao(any(BlockchainRegistro.class));
     verify(transacaoRepository).save(any(Transacao.class));
 }
@@ -234,11 +232,21 @@ void realizarTransacao_limiteDiarioExcedido_deveNegar() {
     OffsetDateTime startDate = OffsetDateTime.now().minusDays(1);
     OffsetDateTime endDate = OffsetDateTime.now();
 
-    when(transacaoRepository.findByIdUsuarioOrigemAndDataCriacaoBetween(anyLong(), eq(startDate), eq(endDate)))
-        .thenReturn(List.of(
-            new Transacao(1L, 1L, 2L, 800.0, null, null, null, null, null, null, true),
-            new Transacao(2L, 1L, 2L, 300.0, null, null, null, null, null, null, true)
-        ));
+    when(transacaoRepository.findByIdUsuarioOrigemAndDataCriacaoBetween(
+        anyLong(), any(OffsetDateTime.class), any(OffsetDateTime.class)))
+    .thenReturn(List.of(
+        new Transacao(1L, 1L, 2L, 800.0, TipoOperacao.SINCRONA, MetodoConexao.INTERNET, GatewayPagamento.PAGARME, StatusTransacao.PENDENTE, OffsetDateTime.now(), OffsetDateTime.now(), "Transação 1"),
+        new Transacao(2L, 1L, 2L, 300.0, TipoOperacao.SINCRONA, MetodoConexao.INTERNET, GatewayPagamento.PAGARME, StatusTransacao.PENDENTE, OffsetDateTime.now(), OffsetDateTime.now(), "Transação 2")
+    ));
+
+    
+    ContaSincrona contaOrigem = new ContaSincrona();
+    contaOrigem.setSaldo(2000.0);
+    ContaSincrona contaDestino = new ContaSincrona();
+    contaDestino.setSaldo(1000.0);
+
+    when(contaSincronaRepository.findByUserId(1L)).thenReturn(contaOrigem);
+    when(contaSincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
 
     Exception ex = assertThrows(IllegalStateException.class, () ->
         transacaoService.realizarTransacao(1L, 2L, 500.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET, null)
@@ -262,6 +270,10 @@ void realizarTransacao_valorAcimaDe10000_deveNotificarBACEN() {
 
     when(contaSincronaRepository.findByUserId(1L)).thenReturn(contaOrigem);
     when(contaSincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
+
+    Transacao transacao = new Transacao();
+    transacao.setId(123L); 
+    when(transacaoRepository.save(any(Transacao.class))).thenReturn(transacao);
 
     transacaoService.realizarTransacao(1L, 2L, 15000.0, GatewayPagamento.PAGARME, MetodoConexao.INTERNET, null);
 

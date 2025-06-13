@@ -15,10 +15,10 @@ class TransacaoTest {
         t.setIdUsuarioOrigem(10L);
         t.setIdUsuarioDestino(20L);
         t.setValor(100.0);
-        t.setTipoTransacao(TipoTransacao.SINCRONA);
+        t.setTipoOperacao(TipoOperacao.SINCRONA);
         t.setMetodoConexao(MetodoConexao.INTERNET);
         t.setGatewayPagamento(GatewayPagamento.PAGARME);
-        t.setSincronizada(true);
+        t.setStatus(StatusTransacao.SINCRONIZADA);
 
         OffsetDateTime now = OffsetDateTime.now();
         t.setDataCriacao(now);
@@ -28,10 +28,10 @@ class TransacaoTest {
         assertEquals(10L, t.getIdUsuarioOrigem());
         assertEquals(20L, t.getIdUsuarioDestino());
         assertEquals(100.0, t.getValor());
-        assertEquals(TipoTransacao.SINCRONA, t.getTipoTransacao());
+        assertEquals(TipoOperacao.SINCRONA, t.getTipoOperacao());
         assertEquals(MetodoConexao.INTERNET, t.getMetodoConexao());
         assertEquals(GatewayPagamento.PAGARME, t.getGatewayPagamento());
-        assertTrue(t.isSincronizada());
+        assertEquals(StatusTransacao.SINCRONIZADA, t.getStatus());
         assertEquals(now, t.getDataCriacao());
         assertEquals(now, t.getDataAtualizacao());
     }
@@ -41,19 +41,19 @@ class TransacaoTest {
         OffsetDateTime now = OffsetDateTime.now();
         Transacao t = new Transacao(
                 2L, 11L, 21L, 200.0,
-                TipoTransacao.ASSINCRONA, MetodoConexao.SMS, GatewayPagamento.STRIPE,
-                null, now, now, false
+                TipoOperacao.ASSINCRONA, MetodoConexao.SMS, GatewayPagamento.STRIPE,
+                StatusTransacao.PENDENTE, now, now, "Transação de teste"
         );
         assertEquals(2L, t.getId());
         assertEquals(11L, t.getIdUsuarioOrigem());
         assertEquals(21L, t.getIdUsuarioDestino());
         assertEquals(200.0, t.getValor());
-        assertEquals(TipoTransacao.ASSINCRONA, t.getTipoTransacao());
+        assertEquals(TipoOperacao.ASSINCRONA, t.getTipoOperacao());
         assertEquals(MetodoConexao.SMS, t.getMetodoConexao());
         assertEquals(GatewayPagamento.STRIPE, t.getGatewayPagamento());
+        assertEquals(StatusTransacao.PENDENTE, t.getStatus());
         assertEquals(now, t.getDataCriacao());
         assertEquals(now, t.getDataAtualizacao());
-        assertFalse(t.isSincronizada());
     }
 
     @Test

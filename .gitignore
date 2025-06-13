@@ -95,13 +95,20 @@ docs/
 *.pem
 *.crt
 
-# Ignorar arquivos gerados
-target/
-*.log
+# Arquivos de dump e temporários
 *.dump
 *.tmp
 
-# Ignorar IDE e sistema operacional
+# Ignorar arquivos de backup e lock
+*.lock
+*.bak
+
+# Ignorar arquivos de build tool
+.gradle/
+build/
+out/
+
+# Ignorar arquivos de IDE e sistema operacional
 .vscode/
 .idea/
 .DS_Store

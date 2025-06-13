@@ -35,7 +35,7 @@ public class UserController {
         String email = authentication.getName();
         return userRepository.findByEmail(email)
             .map(user -> {
-                carregarContas(user); // Carrega contas se necessário
+                carregarContas(user); 
                 return toDTO(user);
             })
             .map(ResponseEntity::ok)
@@ -57,7 +57,7 @@ public class UserController {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
 
-        validarEmailECpf(userDTO, id); // Validação centralizada
+        validarEmailECpf(userDTO, id); 
         atualizarDadosUsuario(user, userDTO);
         userRepository.save(user);
         return ResponseEntity.ok(new ApiResponse<>(toDTO(user), null));
@@ -70,7 +70,7 @@ public class UserController {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
 
-        validarEmailECpf(userDTO, user.getId()); // Validação centralizada
+        validarEmailECpf(userDTO, user.getId()); 
         atualizarDadosUsuario(user, userDTO);
         userRepository.save(user);
         return ResponseEntity.ok(new ApiResponse<>(toDTO(user), null));

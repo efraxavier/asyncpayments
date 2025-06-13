@@ -30,7 +30,7 @@ class UserServiceTest {
 
     @Test
     void criarUsuario_deveSalvarUsuarioComContas() {
-        // Configuração dos dados de entrada
+        
         String email = "user@mail.com";
         String senha = "123456";
         String cpf = "12345678901";
@@ -40,7 +40,7 @@ class UserServiceTest {
         UserRole role = UserRole.USER;
         boolean consentimentoDados = true;
 
-        // Mock do usuário
+        
         User usuarioMock = User.builder()
                 .email(email)
                 .password(senha)
@@ -53,23 +53,23 @@ class UserServiceTest {
                 .consentimentoDados(consentimentoDados)
                 .build();
 
-        // Mock das contas
+        
         ContaSincrona contaSincronaMock = new ContaSincrona(100.0, usuarioMock);
         ContaAssincrona contaAssincronaMock = new ContaAssincrona(0.0, usuarioMock);
 
-        // Configuração dos mocks
+        
         when(userRepository.save(any(User.class))).thenReturn(usuarioMock);
         when(contaSincronaRepository.save(any(ContaSincrona.class))).thenReturn(contaSincronaMock);
         when(contaAssincronaRepository.save(any(ContaAssincrona.class))).thenReturn(contaAssincronaMock);
 
-        // Execução do método
+        
         User resultado = userService.criarUsuario(email, senha, cpf, nome, sobrenome, celular, role, consentimentoDados);
 
-        // Validações
+        
         assertNotNull(resultado);
         assertNotNull(resultado.getContaSincrona());
         assertNotNull(resultado.getContaAssincrona());
-        verify(userRepository, times(2)).save(any(User.class)); // Salvo duas vezes: inicial e após associar contas
+        verify(userRepository, times(2)).save(any(User.class)); 
         verify(contaSincronaRepository, times(1)).save(any(ContaSincrona.class));
         verify(contaAssincronaRepository, times(1)).save(any(ContaAssincrona.class));
     }
