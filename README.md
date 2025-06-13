@@ -9,12 +9,12 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
 - **Autenticação e Cadastro**:
   - Registro de usuários com criação automática de contas síncronas e assíncronas.
   - Autenticação com JWT.
-  - Exclusão de usuários autenticados.
+  - Exclusão e atualização de usuários autenticados.
 
 - **Transações**:
-  - Realização de transações entre contas (síncronas e assíncronas).
-  - Transferência entre contas do mesmo usuário (síncrona → assíncrona).
-  - Listagem de transações enviadas e recebidas.
+  - Realização de transações entre contas (síncronas, assíncronas e internas).
+  - Transferência entre contas do mesmo usuário (síncrona → assíncrona) usando tipo de operação `INTERNA`.
+  - Listagem de transações enviadas, recebidas e filtradas por qualquer campo.
   - Sincronização de transações offline.
 
 - **Sincronização de Contas**:
@@ -99,9 +99,18 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
     "valor": 50.0,
     "gatewayPagamento": "STRIPE",
     "metodoConexao": "INTERNET",
+    "tipoOperacao": "SINCRONA",
     "descricao": "Pagamento de serviço"
   }
   ```
+
+- `GET /transacoes`  
+  Lista transações com filtros por qualquer campo (exemplo de uso):
+  ```
+  /transacoes?status=SINCRONIZADA&idUsuarioOrigem=1&dataCriacaoInicio=2025-06-01T00:00:00Z&dataCriacaoFim=2025-06-12T23:59:59Z
+  ```
+  **Filtros disponíveis:**  
+  - id, idUsuarioOrigem, idUsuarioDestino, valor, tipoOperacao, metodoConexao, gatewayPagamento, status, descricao, nomeUsuarioOrigem, emailUsuarioOrigem, cpfUsuarioOrigem, nomeUsuarioDestino, emailUsuarioDestino, cpfUsuarioDestino, dataCriacaoInicio, dataCriacaoFim, dataAtualizacaoInicio, dataAtualizacaoFim
 
 - `GET /transacoes/recebidas`  
   Lista transações recebidas pelo usuário autenticado.
@@ -110,19 +119,13 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
   Lista transações enviadas pelo usuário autenticado.
 
 - `POST /transacoes/adicionar-fundos`  
-  Transfere saldo da conta síncrona para a assíncrona do mesmo usuário.  
+  Transfere saldo da conta síncrona para a assíncrona do mesmo usuário (tipo de operação `INTERNA`).  
   **Body:**  
   ```json
   {
-    "idUsuarioOrigem": 20,
-    "idUsuarioDestino": 20,
-    "valor": 3.0,
-    "metodoConexao": "ASYNC",
-    "gatewayPagamento": "INTERNO",
-    "descricao": "Adição de fundos à conta assíncrona"
+    "valor": 3.0
   }
   ```
-
   **Resposta:**  
   ```json
   {
@@ -130,15 +133,24 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
     "idUsuarioOrigem": 20,
     "idUsuarioDestino": 20,
     "valor": 3.0,
-    "tipoTransacao": "ASSINCRONA",
+    "tipoOperacao": "INTERNA",
     "metodoConexao": "ASYNC",
     "gatewayPagamento": "INTERNO",
-    "descricao": null,
+    "descricao": "Adição de fundos da conta síncrona para assincrona",
     "dataCriacao": "2025-06-08T00:22:55.6432361Z",
     "dataAtualizacao": "2025-06-08T00:22:55.6432361Z",
     "sincronizada": false
   }
   ```
+
+- `GET /transacoes/{id}`  
+  Busca uma transação por ID.
+
+- `GET /transacoes/{id}/status`  
+  Consulta o status da transação.
+
+- `PUT /transacoes/{id}/status?novoStatus=SINCRONIZADA`  
+  Atualiza o status da transação (ADMIN).
 
 ---
 

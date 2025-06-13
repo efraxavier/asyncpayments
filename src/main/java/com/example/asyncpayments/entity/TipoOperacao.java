@@ -1,6 +1,7 @@
 package com.example.asyncpayments.entity;
 
-public enum TipoTransacao {
+public enum TipoOperacao {
     SINCRONA,
-    ASSINCRONA
+    ASSINCRONA,
+    INTERNA 
 }

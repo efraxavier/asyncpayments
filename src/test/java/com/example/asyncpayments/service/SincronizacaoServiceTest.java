@@ -2,6 +2,10 @@ package com.example.asyncpayments.service;
 
 import com.example.asyncpayments.entity.ContaAssincrona;
 import com.example.asyncpayments.entity.ContaSincrona;
+import com.example.asyncpayments.entity.GatewayPagamento;
+import com.example.asyncpayments.entity.MetodoConexao;
+import com.example.asyncpayments.entity.StatusTransacao;
+import com.example.asyncpayments.entity.TipoOperacao;
 import com.example.asyncpayments.entity.Transacao;
 import com.example.asyncpayments.entity.User;
 import com.example.asyncpayments.repository.ContaAssincronaRepository;
@@ -35,11 +39,10 @@ class SincronizacaoServiceTest {
     }
 
     @Test
-    void sincronizarConta_deveSincronizarSaldoEDesbloquear() {
+    void sincronizarConta_deveSincronizarSaldoEStatus() {
         User user = User.builder().id(1L).build();
         ContaAssincrona ca = new ContaAssincrona(50.0, user);
         ca.setId(1L);
-        ca.setBloqueada(true);
         ContaSincrona cs = new ContaSincrona(100.0, user);
 
         when(contaAssincronaRepository.findById(1L)).thenReturn(Optional.of(ca));
@@ -49,7 +52,8 @@ class SincronizacaoServiceTest {
 
         verify(contaSincronaRepository).save(any(ContaSincrona.class));
         verify(contaAssincronaRepository).save(any(ContaAssincrona.class));
-        assertFalse(ca.isBloqueada());
+        assertEquals(0.0, ca.getSaldo());
+        assertEquals(150.0, cs.getSaldo());
     }
 
     @Test
@@ -124,43 +128,30 @@ class SincronizacaoServiceTest {
 
     @Test
     void rollbackTransacoesNaoSincronizadas_deveReverterTransacoesPendentes() {
-        User user = User.builder().id(1L).build();
-        ContaAssincrona contaAssincrona = new ContaAssincrona(50.0, user);
-        contaAssincrona.setUltimaSincronizacao(OffsetDateTime.now(ZoneOffset.UTC).minusHours(73));
-        contaAssincrona.setBloqueada(false);
+        Transacao transacao1 = new Transacao(1L, 1L, 2L, 100.0, TipoOperacao.ASSINCRONA, MetodoConexao.INTERNET, GatewayPagamento.PAGARME, StatusTransacao.PENDENTE, OffsetDateTime.now().minusHours(80), OffsetDateTime.now(), "Transação 1");
+        Transacao transacao2 = new Transacao(2L, 1L, 2L, 200.0, TipoOperacao.ASSINCRONA, MetodoConexao.INTERNET, GatewayPagamento.PAGARME, StatusTransacao.PENDENTE, OffsetDateTime.now().minusHours(80), OffsetDateTime.now(), "Transação 2");
 
-        Transacao transacao1 = new Transacao();
-        transacao1.setId(1L);
-        transacao1.setIdUsuarioOrigem(1L);
-        transacao1.setSincronizada(false);
-
-        Transacao transacao2 = new Transacao();
-        transacao2.setId(2L);
-        transacao2.setIdUsuarioOrigem(1L);
-        transacao2.setSincronizada(false);
-
-        when(contaAssincronaRepository.findAll()).thenReturn(List.of(contaAssincrona));
-        when(transacaoRepository.findBySincronizadaFalse()).thenReturn(List.of(transacao1, transacao2));
+        when(transacaoRepository.findByStatus(StatusTransacao.PENDENTE)).thenReturn(List.of(transacao1, transacao2));
 
         sincronizacaoService.rollbackTransacoesNaoSincronizadas();
 
+        assertEquals(StatusTransacao.ROLLBACK, transacao1.getStatus());
+        assertEquals(StatusTransacao.ROLLBACK, transacao2.getStatus());
         verify(transacaoRepository, times(2)).save(any(Transacao.class));
-        verify(contaAssincronaRepository).save(contaAssincrona);
-        assertTrue(contaAssincrona.isBloqueada());
     }
 
     @Test
     void reprocessarTransacoesPendentes_deveSincronizarTransacoesDentroDoPrazo() {
         Transacao transacao = new Transacao();
         transacao.setId(1L);
-        transacao.setSincronizada(false);
+        transacao.setStatus(StatusTransacao.PENDENTE);
         transacao.setDataCriacao(OffsetDateTime.now().minusHours(50));
 
-        when(transacaoRepository.findBySincronizadaFalse()).thenReturn(List.of(transacao));
+        when(transacaoRepository.findByStatus(StatusTransacao.PENDENTE)).thenReturn(List.of(transacao));
 
         sincronizacaoService.reprocessarTransacoesPendentes();
 
-        assertTrue(transacao.isSincronizada());
+        assertEquals(StatusTransacao.SINCRONIZADA, transacao.getStatus());
         verify(transacaoRepository).save(transacao);
     }
 
@@ -168,14 +159,14 @@ class SincronizacaoServiceTest {
     void reprocessarTransacoesPendentes_transacaoForaDoPrazo_deveNegar() {
         Transacao transacao = new Transacao();
         transacao.setId(1L);
-        transacao.setSincronizada(false);
+        transacao.setStatus(StatusTransacao.PENDENTE);
         transacao.setDataCriacao(OffsetDateTime.now().minusHours(80));
 
-        when(transacaoRepository.findBySincronizadaFalse()).thenReturn(List.of(transacao));
+        when(transacaoRepository.findByStatus(StatusTransacao.PENDENTE)).thenReturn(List.of(transacao));
 
         sincronizacaoService.reprocessarTransacoesPendentes();
 
-        assertFalse(transacao.isSincronizada());
+        assertEquals(StatusTransacao.ROLLBACK, transacao.getStatus());
         assertEquals("Rollback: Transação não sincronizada em 72h.", transacao.getDescricao());
         verify(transacaoRepository).save(transacao);
     }

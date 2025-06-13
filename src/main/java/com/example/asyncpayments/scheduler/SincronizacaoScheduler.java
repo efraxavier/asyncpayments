@@ -19,7 +19,7 @@ public class SincronizacaoScheduler {
     private final ContaAssincronaRepository contaAssincronaRepository;
 
 
-    @Scheduled(fixedRate = 60000) // Executa a cada 1 minuto
+    @Scheduled(fixedRate = 60000) 
     public void verificarEBloquearContas() {
         List<ContaAssincrona> contasAssincronas = contaAssincronaRepository.findAll();
 
@@ -39,12 +39,12 @@ public class SincronizacaoScheduler {
         }
     }
 
-    @Scheduled(fixedRate = 60000) // Executa a cada 1 minuto
+    @Scheduled(fixedRate = 60000) 
     public void executarRollbackTransacoesNaoSincronizadas() {
         sincronizacaoService.rollbackTransacoesNaoSincronizadas();
     }
 
-    @Scheduled(fixedRate = 60000) // Executa a cada 1 minuto
+    @Scheduled(fixedRate = 60000) 
     public void reprocessarTransacoesPendentes() {
         sincronizacaoService.reprocessarTransacoesPendentes();
     }

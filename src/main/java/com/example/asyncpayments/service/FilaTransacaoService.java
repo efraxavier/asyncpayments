@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 
 import com.example.asyncpayments.entity.Transacao;
+import com.example.asyncpayments.entity.StatusTransacao;
 
 import lombok.RequiredArgsConstructor;
 
@@ -13,18 +14,21 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class FilaTransacaoService {
 
-    private final Map<Long, String> statusTransacoes = new ConcurrentHashMap<>(); // Gerencia os status das transações
+    private final Map<Long, StatusTransacao> statusTransacoes = new ConcurrentHashMap<>(); 
 
     public void adicionarNaFila(Transacao transacao) {
-        statusTransacoes.put(transacao.getId(), "PENDENTE");
+        statusTransacoes.put(transacao.getId(), StatusTransacao.PENDENTE);
         System.out.println("Transação adicionada na fila: " + transacao.getId());
     }
 
-    public String consultarStatus(Long idTransacao) {
-        return statusTransacoes.getOrDefault(idTransacao, "NÃO ENCONTRADA");
+    public StatusTransacao consultarStatus(Long idTransacao) {
+        if (!statusTransacoes.containsKey(idTransacao)) {
+            throw new IllegalArgumentException("Transação não encontrada.");
+        }
+        return statusTransacoes.get(idTransacao);
     }
 
-    public void atualizarStatus(Long idTransacao, String novoStatus) {
+    public void atualizarStatus(Long idTransacao, StatusTransacao novoStatus) {
         statusTransacoes.put(idTransacao, novoStatus);
     }
 }

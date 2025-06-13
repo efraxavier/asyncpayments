@@ -24,8 +24,8 @@ public class ContaAssincrona extends Conta {
     }
 
     @Override
-    public TipoConta getTipoConta() {
-        return TipoConta.ASSINCRONA;
+    public TipoOperacao getTipoOperacao() {
+        return TipoOperacao.ASSINCRONA;
     }
 
     @PrePersist
@@ -36,7 +36,7 @@ public class ContaAssincrona extends Conta {
 
     @PreUpdate
     protected void onUpdate() {
-        // Bloqueia se última sincronização for há mais de 72 horas
+        
         if (ultimaSincronizacao != null && ultimaSincronizacao.isBefore(OffsetDateTime.now(ZoneOffset.UTC).minusHours(72))) {
             this.bloqueada = true;
         }

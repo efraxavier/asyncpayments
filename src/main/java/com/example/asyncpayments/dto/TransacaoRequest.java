@@ -2,6 +2,7 @@ package com.example.asyncpayments.dto;
 
 import com.example.asyncpayments.entity.GatewayPagamento;
 import com.example.asyncpayments.entity.MetodoConexao;
+import com.example.asyncpayments.entity.TipoOperacao;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -29,5 +30,12 @@ public class TransacaoRequest {
     @NotNull(message = "O gateway de pagamento é obrigatório.")
     private GatewayPagamento gatewayPagamento;
 
+    @NotNull(message = "O tipo de operação é obrigatório.")
+    private TipoOperacao tipoOperacao;
+
     private String descricao;
+
+    public TipoOperacao getTipoOperacao() {
+        return tipoOperacao;
+    }
 }

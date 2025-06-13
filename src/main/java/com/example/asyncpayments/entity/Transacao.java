@@ -1,15 +1,13 @@
 package com.example.asyncpayments.entity;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 
 @Entity
 @Data
@@ -32,8 +30,8 @@ public class Transacao {
     private Double valor;
 
     @Enumerated(EnumType.STRING)
-    @NotNull(message = "O tipo de transação é obrigatório.")
-    private TipoTransacao tipoTransacao;
+    @NotNull(message = "O tipo de operação é obrigatório.")
+    private TipoOperacao tipoOperacao;
 
     @Enumerated(EnumType.STRING)
     @NotNull(message = "O método de conexão é obrigatório.")
@@ -43,22 +41,61 @@ public class Transacao {
     @NotNull(message = "O gateway de pagamento é obrigatório.")
     private GatewayPagamento gatewayPagamento;
 
+    @Enumerated(EnumType.STRING)
+    @NotNull(message = "O status da transação é obrigatório.")
+    private StatusTransacao status;
+
     @Column(length = 140)
     private String descricao;
 
     private OffsetDateTime dataCriacao;
     private OffsetDateTime dataAtualizacao;
 
-    private boolean sincronizada;
+    private String nomeUsuarioOrigem;
+    private String emailUsuarioOrigem;
+    private String cpfUsuarioOrigem;
+
+    private String nomeUsuarioDestino;
+    private String emailUsuarioDestino;
+    private String cpfUsuarioDestino;
 
     @PrePersist
     protected void onCreate() {
-        this.dataCriacao = OffsetDateTime.now(ZoneOffset.UTC);
-        this.dataAtualizacao = OffsetDateTime.now(ZoneOffset.UTC);
+        this.dataCriacao = OffsetDateTime.now();
+        this.dataAtualizacao = OffsetDateTime.now();
+        this.status = StatusTransacao.PENDENTE; 
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.dataAtualizacao = OffsetDateTime.now(ZoneOffset.UTC);
+        this.dataAtualizacao = OffsetDateTime.now();
+    }
+
+    public boolean isSincronizada() {
+        return this.status == StatusTransacao.SINCRONIZADA;
+    }
+
+    public OffsetDateTime getDataSincronizacaoOrigem() {
+        return this.dataCriacao;
+    }
+
+    public OffsetDateTime getDataSincronizacaoDestino() {
+        return this.dataAtualizacao;
+    }
+
+    public Transacao(Long id, Long idUsuarioOrigem, Long idUsuarioDestino, Double valor, TipoOperacao tipoOperacao,
+                     MetodoConexao metodoConexao, GatewayPagamento gatewayPagamento, StatusTransacao status,
+                     OffsetDateTime dataCriacao, OffsetDateTime dataAtualizacao, String descricao) {
+        this.id = id;
+        this.idUsuarioOrigem = idUsuarioOrigem;
+        this.idUsuarioDestino = idUsuarioDestino;
+        this.valor = valor;
+        this.tipoOperacao = tipoOperacao;
+        this.metodoConexao = metodoConexao;
+        this.gatewayPagamento = gatewayPagamento;
+        this.status = status;
+        this.dataCriacao = dataCriacao;
+        this.dataAtualizacao = dataAtualizacao;
+        this.descricao = descricao;
     }
 }

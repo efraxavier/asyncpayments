@@ -52,7 +52,7 @@ class AuthServiceTest {
 
 
         when(userRepository.findByEmail("a@b.com")).thenReturn(Optional.of(user));
-        assertThrows(IllegalArgumentException.class, () -> authService.register(req));
+        assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> authService.register(req));
     }
 
     @Test

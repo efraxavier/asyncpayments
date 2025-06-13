@@ -57,4 +57,55 @@ class UserControllerIT {
         mockMvc.perform(delete("/usuarios/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void cadastroEConsultaUsuarioBasico() throws Exception {
+        String random = String.valueOf(System.nanoTime());
+        String email = "user" + random + "@mail.com";
+        String cpf = random.substring(0, 11);
+
+        RegisterRequest req = new RegisterRequest(email, "123456", cpf, "Nome", "Sobrenome", "11999999999", "USER", true);
+        String registerResponse = mockMvc.perform(post("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andReturn().getResponse().getContentAsString();
+        String token = objectMapper.readTree(registerResponse).get("token").asText();
+
+        mockMvc.perform(get("/usuarios/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(email));
+
+        mockMvc.perform(delete("/usuarios/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void consultarUsuarioNaoAutenticado_deveRetornar401() throws Exception {
+        mockMvc.perform(get("/usuarios/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void atualizarUsuarioComCpfRepetido_deveRetornarErro() throws Exception {
+        String random = String.valueOf(System.nanoTime());
+        String email1 = "altuser1" + random + "@mail.com";
+        String cpf = random.substring(0, 11);
+        String email2 = "altuser2" + random + "@mail.com";
+
+        RegisterRequest req1 = new RegisterRequest(email1, "123456", cpf, "Nome", "Sobrenome", "11999999999", "USER", true);
+        String token1 = objectMapper.readTree(
+                mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req1)))
+                        .andReturn().getResponse().getContentAsString()
+        ).get("token").asText();
+
+        RegisterRequest req2 = new RegisterRequest(email2, "123456", cpf, "Nome", "Sobrenome", "11999999998", "USER", true);
+        mockMvc.perform(post("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req2)))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(delete("/usuarios/me").header("Authorization", "Bearer " + token1)).andExpect(status().isOk());
+    }
 }

@@ -27,5 +27,5 @@ public abstract class Conta {
         this.user = user;
     }
 
-    public abstract TipoConta getTipoConta();
+    public abstract TipoOperacao getTipoOperacao();
 }

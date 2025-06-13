@@ -2,8 +2,9 @@ package com.example.asyncpayments.service;
 
 import com.example.asyncpayments.entity.ContaAssincrona;
 import com.example.asyncpayments.entity.ContaSincrona;
+import com.example.asyncpayments.entity.StatusTransacao;
 import com.example.asyncpayments.entity.Transacao;
-import com.example.asyncpayments.entity.TipoTransacao;
+import com.example.asyncpayments.entity.TipoOperacao;
 import com.example.asyncpayments.repository.ContaAssincronaRepository;
 import com.example.asyncpayments.repository.ContaSincronaRepository;
 import com.example.asyncpayments.repository.TransacaoRepository;
@@ -21,13 +22,14 @@ public class SincronizacaoService {
     private final ContaAssincronaRepository contaAssincronaRepository;
     private final ContaSincronaRepository contaSincronaRepository;
     private final TransacaoRepository transacaoRepository;
-
+    private final FilaTransacaoService filaTransacaoService;
+    
     public void sincronizarContas() {
         List<ContaAssincrona> contasAssincronas = contaAssincronaRepository.findAll();
 
         for (ContaAssincrona contaAssincrona : contasAssincronas) {
             if (contaAssincrona.isBloqueada()) {
-                continue; // Ignora contas bloqueadas
+                continue;
             }
 
             ContaSincrona contaSincrona = contaSincronaRepository.findByUserId(contaAssincrona.getUser().getId());
@@ -47,6 +49,14 @@ public class SincronizacaoService {
     ContaAssincrona contaAssincrona = contaAssincronaRepository.findById(idContaAssincrona)
             .orElseThrow(() -> new IllegalArgumentException("Conta assíncrona não encontrada."));
 
+    OffsetDateTime ultimaSincronizacao = contaAssincrona.getUltimaSincronizacao();
+    if (ultimaSincronizacao != null &&
+        java.time.Duration.between(ultimaSincronizacao, OffsetDateTime.now(ZoneOffset.UTC)).toHours() > 72) {
+        contaAssincrona.bloquear();
+        contaAssincronaRepository.save(contaAssincrona);
+        throw new IllegalStateException("Sincronização manual fora do prazo. Conta bloqueada.");
+    }
+
     ContaSincrona contaSincrona = contaSincronaRepository.findByUserId(contaAssincrona.getUser().getId());
     if (contaSincrona == null) {
         throw new IllegalArgumentException("Conta síncrona correspondente não encontrada.");
@@ -55,11 +65,9 @@ public class SincronizacaoService {
     contaSincrona.setSaldo(contaSincrona.getSaldo() + contaAssincrona.getSaldo());
     contaAssincrona.setSaldo(0.0);
     contaAssincrona.setUltimaSincronizacao(OffsetDateTime.now(ZoneOffset.UTC));
-    contaAssincrona.setBloqueada(false);
-
-    contaSincronaRepository.save(contaSincrona);
     contaAssincronaRepository.save(contaAssincrona);
-    }
+    contaSincronaRepository.save(contaSincrona);
+}
 
     public void verificarEBloquearContas() {
         List<ContaAssincrona> contasAssincronas = contaAssincronaRepository.findAll();
@@ -72,65 +80,83 @@ public class SincronizacaoService {
             if (contaAssincrona.getUltimaSincronizacao() != null &&
                 contaAssincrona.getUltimaSincronizacao().isBefore(OffsetDateTime.now(ZoneOffset.UTC).minusHours(72))) {
                 contaAssincrona.bloquear();
-                contaAssincronaRepository.save(contaAssincrona); // Salva após bloquear
+                contaAssincronaRepository.save(contaAssincrona); 
             } else {
-                sincronizarConta(contaAssincrona.getId()); // Sincroniza e salva dentro do método
+                sincronizarConta(contaAssincrona.getId()); 
             }
         }
     }
 
-    public void rollbackTransacoesNaoSincronizadas() {
-        List<ContaAssincrona> contasAssincronas = contaAssincronaRepository.findAll();
+    /**
+     * Sincroniza todas as transações pendentes, marcando como SINCRONIZADA se dentro do prazo,
+     * ou ROLLBACK se fora do prazo.
+     */
+    public void sincronizarTransacoesPendentes() {
+        List<Transacao> pendentes = transacaoRepository.findByStatus(StatusTransacao.PENDENTE);
 
-        for (ContaAssincrona contaAssincrona : contasAssincronas) {
-            if (contaAssincrona.getUltimaSincronizacao() != null &&
-                contaAssincrona.getUltimaSincronizacao().isBefore(OffsetDateTime.now(ZoneOffset.UTC).minusHours(72))) {
+        for (Transacao transacao : pendentes) {
+            OffsetDateTime dataEnvio = transacao.getDataCriacao();
+            OffsetDateTime agora = OffsetDateTime.now(ZoneOffset.UTC);
 
-                List<Transacao> transacoesPendentes = transacaoRepository.findBySincronizadaFalse()
-                    .stream()
-                    .filter(t -> t.getIdUsuarioOrigem().equals(contaAssincrona.getUser().getId()))
-                    .toList();
-
-                for (Transacao transacao : transacoesPendentes) {
-                    transacao.setSincronizada(false); // Marca como não sincronizada
-                    transacao.setDescricao("Rollback: Transação não sincronizada em 72h.");
-                    transacao.setTipoTransacao(TipoTransacao.ASSINCRONA); // Defina o tipo de transação
-                    transacaoRepository.save(transacao);
-                }
-
-                contaAssincrona.bloquear(); // Bloqueia a conta
-                contaAssincronaRepository.save(contaAssincrona);
+            if (dataEnvio != null && java.time.Duration.between(dataEnvio, agora).toHours() > 72) {
+                transacao.setStatus(StatusTransacao.ROLLBACK);
+                transacao.setDescricao("Rollback: Transação não sincronizada em 72h.");
+            } else {
+                transacao.setStatus(StatusTransacao.SINCRONIZADA);
+                transacao.setDataAtualizacao(agora);
             }
+            transacaoRepository.save(transacao);
         }
     }
 
-
+    /**
+     * Reprocessa transações pendentes, atualizando status conforme o prazo.
+     */
     public void reprocessarTransacoesPendentes() {
-        List<Transacao> transacoesPendentes = transacaoRepository.findBySincronizadaFalse();
+        List<Transacao> pendentes = transacaoRepository.findByStatus(StatusTransacao.PENDENTE);
 
-        for (Transacao transacao : transacoesPendentes) {
+        for (Transacao transacao : pendentes) {
             try {
                 OffsetDateTime dataEnvio = transacao.getDataCriacao();
-                OffsetDateTime dataAtual = OffsetDateTime.now(ZoneOffset.UTC);
+                OffsetDateTime agora = OffsetDateTime.now(ZoneOffset.UTC);
 
-                // Verifica se a transação foi enviada há mais de 72 horas
-                if (dataEnvio != null && java.time.Duration.between(dataEnvio, dataAtual).toHours() > 72) {
-                    transacao.setSincronizada(false);
+                if (dataEnvio != null && java.time.Duration.between(dataEnvio, agora).toHours() > 72) {
+                    transacao.setStatus(StatusTransacao.ROLLBACK);
                     transacao.setDescricao("Rollback: Transação não sincronizada em 72h.");
-                    transacao.setTipoTransacao(TipoTransacao.ASSINCRONA); // Defina o tipo de transação
-                    transacaoRepository.save(transacao);
-                    continue;
+                } else {
+                    transacao.setStatus(StatusTransacao.SINCRONIZADA);
+                    transacao.setDataAtualizacao(agora);
                 }
-
-                // Reprocessa transações válidas
-                transacao.setSincronizada(true);
-                transacao.setDataAtualizacao(dataAtual);
-                transacao.setTipoTransacao(TipoTransacao.ASSINCRONA); // Defina o tipo de transação
                 transacaoRepository.save(transacao);
             } catch (Exception e) {
+                transacao.setStatus(StatusTransacao.ERRO);
                 transacao.setDescricao("Erro ao reprocessar: " + e.getMessage());
                 transacaoRepository.save(transacao);
             }
         }
+    }
+
+    /**
+     * Marca como ROLLBACK todas as transações pendentes fora do prazo.
+     */
+    public void rollbackTransacoesNaoSincronizadas() {
+        List<Transacao> pendentes = transacaoRepository.findByStatus(StatusTransacao.PENDENTE);
+
+        for (Transacao transacao : pendentes) {
+            OffsetDateTime dataEnvio = transacao.getDataCriacao();
+            OffsetDateTime agora = OffsetDateTime.now(ZoneOffset.UTC);
+
+            if (dataEnvio != null && java.time.Duration.between(dataEnvio, agora).toHours() > 72) {
+                transacao.setStatus(StatusTransacao.ROLLBACK);
+                transacao.setDescricao("Rollback: Transação não sincronizada em 72h.");
+                transacaoRepository.save(transacao);
+            }
+        }
+    }
+
+    public OffsetDateTime buscarDataSincronizacao(Long contaAssincronaId) {
+        return contaAssincronaRepository.findById(contaAssincronaId)
+                .map(ContaAssincrona::getUltimaSincronizacao)
+                .orElse(null);
     }
 }

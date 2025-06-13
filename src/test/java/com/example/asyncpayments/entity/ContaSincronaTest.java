@@ -12,7 +12,7 @@ class ContaSincronaTest {
 
         assertEquals(100.0, conta.getSaldo());
         assertEquals(user, conta.getUser());
-        assertEquals(TipoConta.SINCRONA, conta.getTipoConta());
+        assertEquals(TipoOperacao.SINCRONA, conta.getTipoOperacao());
     }
 
     @Test
