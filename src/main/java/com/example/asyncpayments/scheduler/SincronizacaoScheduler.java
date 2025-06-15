@@ -24,16 +24,13 @@ public class SincronizacaoScheduler {
 
     @Scheduled(fixedRate = 60000)
     public void verificarEBloquearContas() {
-        List<ContaAssincrona> contasAssincronas = contaAssincronaRepository.findAll();
-
-        for (ContaAssincrona contaAssincrona : contasAssincronas) {
+        for (ContaAssincrona contaAssincrona : contaAssincronaRepository.findAll()) {
             if (contaAssincrona.isBloqueada()) {
                 continue;
             }
 
             OffsetDateTime agora = OffsetDateTime.now(ZoneOffset.UTC);
 
-            // Busca a última transação de sincronização do usuário
             List<Transacao> sincronizacoes = transacaoRepository
                     .findByIdUsuarioOrigem(contaAssincrona.getUser().getId())
                     .stream()
@@ -56,7 +53,7 @@ public class SincronizacaoScheduler {
             if (precisaBloquear) {
                 contaAssincrona.bloquear();
             } else if (precisaSincronizar) {
-                sincronizacaoService.sincronizarConta(contaAssincrona.getId());
+                sincronizacaoService.sincronizarPorId(contaAssincrona.getId());
             }
 
             contaAssincronaRepository.save(contaAssincrona);

@@ -20,7 +20,7 @@ public class SincronizacaoController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> sincronizarContasManual() {
         try {
-            sincronizacaoService.sincronizarContas();
+            sincronizacaoService.sincronizar();
             return ResponseEntity.ok("Sincronização de todas as contas realizada com sucesso.");
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Erro ao sincronizar contas: " + e.getMessage());
@@ -35,7 +35,7 @@ public class SincronizacaoController {
             var user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
             Long contaAssincronaId = user.getContaAssincrona().getId();
-            sincronizacaoService.sincronizarConta(contaAssincronaId);
+            sincronizacaoService.sincronizarPorId(contaAssincronaId);
             return ResponseEntity.ok("Sincronização realizada com sucesso para sua conta.");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Erro: " + e.getMessage());
@@ -48,7 +48,7 @@ public class SincronizacaoController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> sincronizarContaPorId(@PathVariable Long id) {
         try {
-            sincronizacaoService.sincronizarConta(id);
+            sincronizacaoService.sincronizarPorId(id);
             return ResponseEntity.ok("Sincronização realizada com sucesso para a conta ID: " + id);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Erro: " + e.getMessage());

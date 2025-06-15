@@ -26,7 +26,7 @@ public class SincronizacaoService {
     private final TransacaoRepository transacaoRepository;
     private final FilaTransacaoService filaTransacaoService;
 
-    public void sincronizarContas() {
+    public void sincronizar() {
         List<ContaAssincrona> contasAssincronas = contaAssincronaRepository.findAll();
 
         for (ContaAssincrona contaAssincrona : contasAssincronas) {
@@ -35,70 +35,75 @@ public class SincronizacaoService {
             }
 
             ContaSincrona contaSincrona = contaSincronaRepository.findByUserId(contaAssincrona.getUser().getId());
-            if (contaSincrona != null) {
-                Double valor = contaAssincrona.getSaldo();
-                if (valor == null || valor <= 0) continue;
+            if (contaSincrona == null) {
+                continue;
+            }
 
-                // Busca todas as transações de sincronização do usuário
-                List<Transacao> sincronizacoes = transacaoRepository
-                        .findByIdUsuarioOrigem(contaAssincrona.getUser().getId())
-                        .stream()
-                        .filter(t -> TipoOperacao.SINCRONIZACAO.equals(t.getTipoOperacao()))
-                        .toList();
+            Double valor = contaAssincrona.getSaldo();
+            if (valor == null || valor <= 0) continue;
 
-                boolean podeSincronizar = true;
-                if (!sincronizacoes.isEmpty()) {
-                    Transacao ultimaSincronizacao = sincronizacoes.stream()
-                            .max((a, b) -> a.getDataCriacao().compareTo(b.getDataCriacao()))
-                            .orElse(null);
-                    if (ultimaSincronizacao != null && ultimaSincronizacao.getDataCriacao() != null) {
-                        long horas = java.time.Duration.between(
-                                ultimaSincronizacao.getDataCriacao(), OffsetDateTime.now(ZoneOffset.UTC)).toHours();
-                        if (horas < 72) {
-                            podeSincronizar = false;
-                        }
+            List<Transacao> sincronizacoes = transacaoRepository
+                    .findByIdUsuarioOrigem(contaAssincrona.getUser().getId())
+                    .stream()
+                    .filter(t -> TipoOperacao.SINCRONIZACAO.equals(t.getTipoOperacao()))
+                    .toList();
+
+            boolean podeSincronizar = true;
+            if (!sincronizacoes.isEmpty()) {
+                Transacao ultimaSincronizacao = sincronizacoes.stream()
+                        .max((a, b) -> a.getDataCriacao().compareTo(b.getDataCriacao()))
+                        .orElse(null);
+                if (ultimaSincronizacao != null && ultimaSincronizacao.getDataCriacao() != null) {
+                    long horas = java.time.Duration.between(
+                            ultimaSincronizacao.getDataCriacao(), OffsetDateTime.now(ZoneOffset.UTC)).toHours();
+                    if (horas < 72) {
+                        podeSincronizar = false;
                     }
                 }
+            }
 
-                if (podeSincronizar) {
-                    contaSincrona.setSaldo(contaSincrona.getSaldo() + valor);
-                    contaAssincrona.setSaldo(0.0);
-                    contaAssincrona.sincronizar();
+            if (podeSincronizar) {
+                contaSincrona.setSaldo(contaSincrona.getSaldo() + valor);
+                contaAssincrona.setSaldo(0.0);
+                contaAssincrona.setUltimaSincronizacao(OffsetDateTime.now(ZoneOffset.UTC));
 
-                    contaSincronaRepository.save(contaSincrona);
-                    contaAssincronaRepository.save(contaAssincrona);
+                contaSincronaRepository.save(contaSincrona);
+                contaAssincronaRepository.save(contaAssincrona);
 
-                    Transacao transacao = new Transacao();
-                    transacao.setIdUsuarioOrigem(contaAssincrona.getUser().getId());
-                    transacao.setIdUsuarioDestino(contaAssincrona.getUser().getId());
-                    transacao.setValor(valor);
-                    transacao.setTipoOperacao(TipoOperacao.SINCRONIZACAO);
-                    transacao.setMetodoConexao(MetodoConexao.INTERNET);
-                    transacao.setGatewayPagamento(GatewayPagamento.INTERNO);
-                    transacao.setStatus(StatusTransacao.SINCRONIZADA);
-                    transacao.setDescricao("Sincronização de saldo da conta assíncrona para síncrona");
-                    transacao.setDataCriacao(OffsetDateTime.now(ZoneOffset.UTC));
-                    transacao.setDataAtualizacao(OffsetDateTime.now(ZoneOffset.UTC));
-                    var user = contaAssincrona.getUser();
-                    transacao.setNomeUsuarioOrigem(user.getNome());
-                    transacao.setEmailUsuarioOrigem(user.getEmail());
-                    transacao.setCpfUsuarioOrigem(user.getCpf());
-                    transacao.setNomeUsuarioDestino(user.getNome());
-                    transacao.setEmailUsuarioDestino(user.getEmail());
-                    transacao.setCpfUsuarioDestino(user.getCpf());
+                Transacao transacao = new Transacao();
+                transacao.setIdUsuarioOrigem(contaAssincrona.getUser().getId());
+                transacao.setIdUsuarioDestino(contaAssincrona.getUser().getId());
+                transacao.setValor(valor);
+                transacao.setTipoOperacao(TipoOperacao.SINCRONIZACAO);
+                transacao.setMetodoConexao(MetodoConexao.INTERNET);
+                transacao.setGatewayPagamento(GatewayPagamento.INTERNO);
+                transacao.setStatus(StatusTransacao.SINCRONIZADA);
+                transacao.setDescricao("Sincronização de saldo da conta assíncrona para síncrona");
+                transacao.setDataCriacao(OffsetDateTime.now(ZoneOffset.UTC));
+                transacao.setDataAtualizacao(OffsetDateTime.now(ZoneOffset.UTC));
+                var user = contaAssincrona.getUser();
+                transacao.setNomeUsuarioOrigem(user.getNome());
+                transacao.setEmailUsuarioOrigem(user.getEmail());
+                transacao.setCpfUsuarioOrigem(user.getCpf());
+                transacao.setNomeUsuarioDestino(user.getNome());
+                transacao.setEmailUsuarioDestino(user.getEmail());
+                transacao.setCpfUsuarioDestino(user.getCpf());
 
-                    transacaoRepository.save(transacao);
+                transacaoRepository.save(transacao);
 
-                    filaTransacaoService.adicionarNaFila(transacao);
-                    filaTransacaoService.atualizarStatus(transacao.getId(), StatusTransacao.SINCRONIZADA);
-                }
+                filaTransacaoService.adicionarNaFila(transacao);
+                filaTransacaoService.atualizarStatus(transacao.getId(), StatusTransacao.SINCRONIZADA);
             }
         }
     }
 
-    public void sincronizarConta(Long idContaAssincrona) {
+    public void sincronizarPorId(Long idContaAssincrona) {
         ContaAssincrona contaAssincrona = contaAssincronaRepository.findById(idContaAssincrona)
                 .orElseThrow(() -> new IllegalArgumentException("Conta assíncrona não encontrada."));
+
+        if (contaAssincrona.isBloqueada()) {
+            throw new IllegalArgumentException("Conta assíncrona bloqueada.");
+        }
 
         ContaSincrona contaSincrona = contaSincronaRepository.findByUserId(contaAssincrona.getUser().getId());
         if (contaSincrona == null) {

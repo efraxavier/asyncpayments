@@ -170,4 +170,58 @@ class SincronizacaoServiceTest {
         assertEquals("Rollback: Transação não sincronizada em 72h.", transacao.getDescricao());
         verify(transacaoRepository).save(transacao);
     }
+
+    @Test
+    void sincronizarPorId_deveSincronizarSaldoEStatus() {
+        User user = User.builder().id(1L).build();
+        ContaAssincrona ca = new ContaAssincrona(50.0, user);
+        ca.setId(1L);
+        ContaSincrona cs = new ContaSincrona(100.0, user);
+
+        when(contaAssincronaRepository.findById(1L)).thenReturn(Optional.of(ca));
+        when(contaSincronaRepository.findByUserId(1L)).thenReturn(cs);
+
+        sincronizacaoService.sincronizarPorId(1L);
+
+        verify(contaSincronaRepository).save(any(ContaSincrona.class));
+        verify(contaAssincronaRepository).save(any(ContaAssincrona.class));
+        assertEquals(0.0, ca.getSaldo());
+        assertEquals(150.0, cs.getSaldo());
+    }
+
+    @Test
+    void sincronizarPorId_contaAssincronaNaoEncontrada_deveLancarExcecao() {
+        when(contaAssincronaRepository.findById(99L)).thenReturn(Optional.empty());
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () ->
+            sincronizacaoService.sincronizarPorId(99L)
+        );
+        assertTrue(ex.getMessage().toLowerCase().contains("conta assíncrona não encontrada"));
+    }
+
+    @Test
+    void sincronizarPorId_contaSincronaNaoEncontrada_deveLancarExcecao() {
+        User user = User.builder().id(1L).build();
+        ContaAssincrona ca = new ContaAssincrona(50.0, user);
+        ca.setId(1L);
+        when(contaAssincronaRepository.findById(1L)).thenReturn(Optional.of(ca));
+        when(contaSincronaRepository.findByUserId(1L)).thenReturn(null);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () ->
+            sincronizacaoService.sincronizarPorId(1L)
+        );
+        assertTrue(ex.getMessage().toLowerCase().contains("conta síncrona correspondente não encontrada"));
+    }
+
+    @Test
+    void sincronizar_contaBloqueada_deveIgnorar() {
+        ContaAssincrona contaAssincrona = new ContaAssincrona(50.0, new User());
+        contaAssincrona.setBloqueada(true);
+
+        when(contaAssincronaRepository.findAll()).thenReturn(List.of(contaAssincrona));
+
+        sincronizacaoService.sincronizar();
+
+        verify(contaAssincronaRepository, never()).save(contaAssincrona);
+    }
 }
