@@ -12,9 +12,14 @@ import com.example.asyncpayments.util.AnonimizationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final ContaSincronaRepository contaSincronaRepository;
@@ -30,6 +35,8 @@ public class UserService {
             UserRole role,
             boolean consentimentoDados
     ) {
+        logger.info("[USER] Criando usuário: email={} cpf={}", email, cpf);
+
         boolean kycValidado = email != null && !email.isBlank()
                 && senha != null && !senha.isBlank()
                 && cpf != null && !cpf.isBlank()
@@ -64,7 +71,8 @@ public class UserService {
         usuario.setContaAssincrona(contaAssincrona);
 
         
-        return userRepository.save(usuario);
+        logger.info("[USER] Usuário criado com sucesso: userId={}", usuario.getId());
+        return usuario;
     }
 
     public long countUsers() {

@@ -37,6 +37,8 @@ public class TransacaoService {
      */
     @Transactional
     public Transacao realizarTransacao(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor, GatewayPagamento gatewayPagamento, MetodoConexao metodoConexao, String descricao) {
+        logger.info("[TRANSACAO] Iniciando transação: origem={} destino={} valor={} gateway={} metodo={}", idUsuarioOrigem, idUsuarioDestino, valor, gatewayPagamento, metodoConexao);
+
         validarParametrosTransacao(idUsuarioOrigem, idUsuarioDestino, valor);
 
         if (valor <= 10000.0) {
@@ -47,11 +49,20 @@ public class TransacaoService {
         ContaSincrona contaDestino = contaSincronaRepository.findByUserId(idUsuarioDestino);
 
         if (contaOrigem == null || contaDestino == null) {
+            logger.error("[VALIDACAO] Conta de origem ou destino não encontrada: origem={} destino={}", idUsuarioOrigem, idUsuarioDestino);
             throw new IllegalArgumentException("Conta de origem ou destino não encontrada.");
         }
 
         if (contaOrigem.getSaldo() < valor) {
+            logger.warn("[VALIDACAO] Saldo insuficiente: usuario={} saldo={} valorTentativa={}", idUsuarioOrigem, contaOrigem.getSaldo(), valor);
             throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
+        }
+
+        // Log para KYC (exemplo de regra de negócio)
+        User userOrigem = userRepository.findById(idUsuarioOrigem).orElse(null);
+        if (valor > 500 && userOrigem != null && !userOrigem.isKycValidado()) {
+            logger.warn("[VALIDACAO] KYC obrigatório não validado: usuario={} valor={}", idUsuarioOrigem, valor);
+            throw new IllegalArgumentException("KYC obrigatório para transações acima de R$500.");
         }
 
         contaOrigem.setSaldo(contaOrigem.getSaldo() - valor);
@@ -60,7 +71,8 @@ public class TransacaoService {
         contaSincronaRepository.save(contaOrigem);
         contaSincronaRepository.save(contaDestino);
 
-        
+        logger.info("[TRANSACAO] Saldo atualizado: origem={} novoSaldo={} destino={} novoSaldo={}", idUsuarioOrigem, contaOrigem.getSaldo(), idUsuarioDestino, contaDestino.getSaldo());
+
         Transacao transacao = new Transacao();
         transacao.setIdUsuarioOrigem(idUsuarioOrigem);
         transacao.setIdUsuarioDestino(idUsuarioDestino);
@@ -72,7 +84,7 @@ public class TransacaoService {
 
         Transacao transacaoSalva = transacaoRepository.save(transacao);
 
-        
+        logger.info("[BLOCKCHAIN] Registrando transação no blockchain: transacaoId={}", transacaoSalva.getId());
         BlockchainRegistro registro = BlockchainRegistro.builder()
                 .idUsuarioOrigem(idUsuarioOrigem)
                 .idUsuarioDestino(idUsuarioDestino)
@@ -81,7 +93,6 @@ public class TransacaoService {
                 .build();
         blockchainService.registrarTransacao(registro);
 
-        
         if (valor > 10000.0) {
             String info = String.format(
                 "Notificando BACEN: Transação de alto valor detectada! Origem: %d, Destino: %d, Valor: %.2f, Descrição: %s, Data: %s",
@@ -89,7 +100,6 @@ public class TransacaoService {
             );
             logger.warn(info);
 
-            
             TransacaoAltoValor registroAltoValor = TransacaoAltoValor.builder()
                 .idTransacao(transacaoSalva.getId())
                 .idUsuarioOrigem(idUsuarioOrigem)
@@ -101,14 +111,17 @@ public class TransacaoService {
             transacaoAltoValorRepository.save(registroAltoValor);
         }
 
+        logger.info("[TRANSACAO] Transação concluída com sucesso: transacaoId={}", transacaoSalva.getId());
         return transacaoSalva;
     }
 
     private void validarParametrosTransacao(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor) {
         if (idUsuarioOrigem == null || idUsuarioDestino == null) {
+            logger.error("[VALIDACAO] IDs de usuário obrigatórios não informados: origem={} destino={}", idUsuarioOrigem, idUsuarioDestino);
             throw new IllegalArgumentException("Os IDs dos usuários de origem e destino são obrigatórios.");
         }
         if (valor == null || valor <= 0) {
+            logger.error("[VALIDACAO] Valor inválido informado: valor={}", valor);
             throw new IllegalArgumentException("O valor da transação deve ser maior que zero.");
         }
     }
@@ -116,11 +129,11 @@ public class TransacaoService {
     private void validarLimiteDiario(Long idUsuarioOrigem, Double valor) {
         OffsetDateTime startDate = OffsetDateTime.now().minusDays(1);
         OffsetDateTime endDate = OffsetDateTime.now();
-
         List<Transacao> transacoes = transacaoRepository.findByIdUsuarioOrigemAndDataCriacaoBetween(idUsuarioOrigem, startDate, endDate);
         double totalDiario = transacoes.stream().mapToDouble(Transacao::getValor).sum();
 
         if (totalDiario + valor > 1000.0) {
+            logger.warn("[VALIDACAO] Limite diário excedido para usuário {}: total={} valorTentativa={}", idUsuarioOrigem, totalDiario, valor);
             throw new IllegalStateException("Limite diário excedido");
         }
     }
@@ -172,6 +185,25 @@ public class TransacaoService {
     public Transacao criarTransacao(Long idUsuarioOrigem, Long idUsuarioDestino, Double valor, TipoOperacao tipoOperacao,
                                MetodoConexao metodoConexao, GatewayPagamento gatewayPagamento, String descricao) {
         validarParametrosTransacao(idUsuarioOrigem, idUsuarioDestino, valor);
+
+        // Se for sincronização, processa corretamente!
+        if (tipoOperacao == TipoOperacao.SINCRONIZACAO) {
+            Transacao transacao = new Transacao();
+            transacao.setIdUsuarioOrigem(idUsuarioOrigem);
+            transacao.setIdUsuarioDestino(idUsuarioDestino);
+            transacao.setValor(valor);
+            transacao.setTipoOperacao(tipoOperacao);
+            transacao.setMetodoConexao(metodoConexao);
+            transacao.setGatewayPagamento(gatewayPagamento);
+            transacao.setDescricao(descricao);
+            transacao.setDataCriacao(OffsetDateTime.now(ZoneOffset.UTC));
+
+            // Salva como pendente e processa sincronização
+            transacao.setStatus(StatusTransacao.PENDENTE);
+            transacaoRepository.save(transacao);
+
+            return processarSincronizacao(transacao, OffsetDateTime.now(ZoneOffset.UTC));
+        }
 
         if (tipoOperacao == TipoOperacao.INTERNA) {
             
@@ -245,11 +277,59 @@ public class TransacaoService {
     }
 
     @Transactional
-    public void atualizarStatusTransacao(Long idTransacao, StatusTransacao novoStatus) {
-        Transacao transacao = transacaoRepository.findById(idTransacao)
-                .orElseThrow(() -> new IllegalArgumentException("Transação não encontrada."));
-        transacao.setStatus(novoStatus);
+    public Transacao processarSincronizacao(Transacao transacao, OffsetDateTime dataRecebida) {
+        ContaAssincrona contaAssincrona = contaAssincronaRepository.findByUserId(transacao.getIdUsuarioOrigem());
+        ContaSincrona contaSincrona = contaSincronaRepository.findByUserId(transacao.getIdUsuarioOrigem());
+
+        if (contaAssincrona == null || contaSincrona == null) {
+            logger.error("[SINCRONIZACAO] Conta não encontrada para usuário {}", transacao.getIdUsuarioOrigem());
+            throw new IllegalArgumentException("Conta não encontrada.");
+        }
+
+        // Validação de prazo
+        OffsetDateTime dataCriacao = transacao.getDataCriacao();
+        if (dataCriacao != null && java.time.Duration.between(dataCriacao, dataRecebida).toHours() > 72) {
+            logger.warn("[SINCRONIZACAO] Sincronização fora do prazo de 72h: usuario={} dataCriacao={} dataRecebida={}", transacao.getIdUsuarioOrigem(), dataCriacao, dataRecebida);
+            transacao.setStatus(StatusTransacao.ROLLBACK);
+            transacao.setDescricao("Sincronização não pode ser processada após 72h.");
+            transacaoRepository.save(transacao);
+            return transacao;
+        }
+
+        // Validação de valor
+        double saldoAssincrona = contaAssincrona.getSaldo();
+        if (saldoAssincrona <= 0) {
+            logger.warn("[SINCRONIZACAO] Conta assíncrona já está zerada para usuário {}", transacao.getIdUsuarioOrigem());
+            transacao.setStatus(StatusTransacao.ROLLBACK);
+            transacao.setDescricao("Conta assíncrona já está zerada.");
+            transacaoRepository.save(transacao);
+            return transacao;
+        }
+        if (!saldoAssincronaEquals(transacao.getValor(), saldoAssincrona)) {
+            logger.warn("[SINCRONIZACAO] Valor de sincronização não corresponde ao saldo da conta assíncrona: usuario={} valorTransacao={} saldoAssincrona={}", transacao.getIdUsuarioOrigem(), transacao.getValor(), saldoAssincrona);
+            transacao.setStatus(StatusTransacao.ROLLBACK);
+            transacao.setDescricao("Valor de sincronização não corresponde ao saldo da conta assíncrona.");
+            transacaoRepository.save(transacao);
+            return transacao;
+        }
+
+        // Realiza a sincronização
+        contaSincrona.setSaldo(contaSincrona.getSaldo() + saldoAssincrona);
+        contaAssincrona.setSaldo(0.0);
+        contaSincronaRepository.save(contaSincrona);
+        contaAssincronaRepository.save(contaAssincrona);
+
+        transacao.setStatus(StatusTransacao.SINCRONIZADA);
+        transacao.setDataAtualizacao(dataRecebida);
         transacaoRepository.save(transacao);
+
+        logger.info("[SINCRONIZACAO] Sincronização concluída: usuario={} valor={}", transacao.getIdUsuarioOrigem(), saldoAssincrona);
+        return transacao;
+    }
+
+    // Função auxiliar para comparar double com tolerância
+    private boolean saldoAssincronaEquals(double valorTransacao, double saldoAssincrona) {
+        return Math.abs(valorTransacao - saldoAssincrona) < 0.01;
     }
 
     private String gerarHashSimples(Long origem, Long destino, Double valor) {
@@ -285,26 +365,35 @@ public class TransacaoService {
     public void processarTransacaoOffline(long transacaoId, OffsetDateTime dataProcessamento) {
         Optional<Transacao> transacaoOpt = transacaoRepository.findById(transacaoId);
         if (transacaoOpt.isEmpty()) {
+            logger.error("[VALIDACAO] Transação não encontrada: transacaoId={}", transacaoId);
             throw new IllegalArgumentException("Transação não encontrada.");
         }
         Transacao transacao = transacaoOpt.get();
 
-        
         OffsetDateTime dataCriacao = transacao.getDataCriacao();
         if (dataCriacao != null && java.time.Duration.between(dataCriacao, dataProcessamento).toHours() > 72) {
+            logger.warn("[VALIDACAO] Transação fora do prazo de 72h: transacaoId={} dataCriacao={} dataProcessamento={}", transacao.getId(), dataCriacao, dataProcessamento);
             transacao.setStatus(StatusTransacao.ROLLBACK);
             transacao.setDescricao("Transação não pode ser processada após 72h.");
             transacaoRepository.save(transacao);
+
+            ContaSincrona contaSincrona = contaSincronaRepository.findByUserId(transacao.getIdUsuarioOrigem());
+            if (contaSincrona != null) {
+                contaSincrona.setSaldo(contaSincrona.getSaldo() + transacao.getValor());
+                contaSincronaRepository.save(contaSincrona);
+            }
+
             throw new IllegalStateException("Transação não pode ser processada após 72h.");
         }
 
-        
         ContaAssincrona contaOrigem = contaAssincronaRepository.findByUserId(transacao.getIdUsuarioOrigem());
         ContaAssincrona contaDestino = contaAssincronaRepository.findByUserId(transacao.getIdUsuarioDestino());
         if (contaOrigem == null || contaDestino == null) {
+            logger.error("[VALIDACAO] Conta assíncrona de origem ou destino não encontrada: origem={} destino={}", transacao.getIdUsuarioOrigem(), transacao.getIdUsuarioDestino());
             throw new IllegalArgumentException("Conta assíncrona de origem ou destino não encontrada.");
         }
         if (contaOrigem.getSaldo() < transacao.getValor()) {
+            logger.warn("[VALIDACAO] Saldo insuficiente na conta assíncrona: usuario={} saldo={} valorTentativa={}", transacao.getIdUsuarioOrigem(), contaOrigem.getSaldo(), transacao.getValor());
             throw new IllegalStateException("Saldo insuficiente na conta assíncrona de origem.");
         }
         contaOrigem.setSaldo(contaOrigem.getSaldo() - transacao.getValor());
@@ -312,12 +401,11 @@ public class TransacaoService {
         contaAssincronaRepository.save(contaOrigem);
         contaAssincronaRepository.save(contaDestino);
 
-        
         transacao.setStatus(StatusTransacao.SINCRONIZADA);
         transacao.setDataAtualizacao(dataProcessamento);
         transacaoRepository.save(transacao);
 
-        
+        logger.info("[BLOCKCHAIN] Registrando transação offline no blockchain: transacaoId={}", transacao.getId());
         BlockchainRegistro registro = BlockchainRegistro.builder()
                 .idUsuarioOrigem(transacao.getIdUsuarioOrigem())
                 .idUsuarioDestino(transacao.getIdUsuarioDestino())
@@ -332,17 +420,21 @@ public class TransacaoService {
      */
     public void realizarTransacaoAssincrona(long idUsuarioOrigem, long idUsuarioDestino, double valor) {
         if (valor > 500.0) {
+            logger.warn("[VALIDACAO] Valor acima do permitido para transação offline: usuario={} valor={}", idUsuarioOrigem, valor);
             throw new IllegalArgumentException("Limite de R$500 por transação offline");
         }
         if (valor <= 0) {
+            logger.error("[VALIDACAO] Valor inválido informado para transação offline: valor={}", valor);
             throw new IllegalArgumentException("O valor da transação deve ser maior que zero.");
         }
         ContaAssincrona contaOrigem = contaAssincronaRepository.findByUserId(idUsuarioOrigem);
         ContaAssincrona contaDestino = contaAssincronaRepository.findByUserId(idUsuarioDestino);
         if (contaOrigem == null || contaDestino == null) {
+            logger.error("[VALIDACAO] Conta assíncrona de origem ou destino não encontrada: origem={} destino={}", idUsuarioOrigem, idUsuarioDestino);
             throw new IllegalArgumentException("Conta assíncrona de origem ou destino não encontrada.");
         }
         if (contaOrigem.getSaldo() < valor) {
+            logger.warn("[VALIDACAO] Saldo insuficiente na conta assíncrona: usuario={} saldo={} valorTentativa={}", idUsuarioOrigem, contaOrigem.getSaldo(), valor);
             throw new IllegalStateException("Saldo insuficiente na conta assíncrona de origem.");
         }
 
@@ -362,7 +454,7 @@ public class TransacaoService {
         transacao.setDataCriacao(OffsetDateTime.now(ZoneOffset.UTC));
         transacaoRepository.save(transacao);
 
-        
+        logger.info("[BLOCKCHAIN] Registrando transação assíncrona no blockchain: origem={} destino={} valor={}", idUsuarioOrigem, idUsuarioDestino, valor);
         BlockchainRegistro registro = BlockchainRegistro.builder()
                 .idUsuarioOrigem(idUsuarioOrigem)
                 .idUsuarioDestino(idUsuarioDestino)
@@ -464,5 +556,17 @@ public class TransacaoService {
                 return true;
             })
             .toList();
+    }
+
+    public void atualizarStatusTransacao(Long id, StatusTransacao novoStatus) {
+        Optional<Transacao> transacaoOpt = transacaoRepository.findById(id);
+        if (transacaoOpt.isPresent()) {
+            Transacao transacao = transacaoOpt.get();
+            transacao.setStatus(novoStatus);
+            transacao.setDataAtualizacao(OffsetDateTime.now(ZoneOffset.UTC));
+            transacaoRepository.save(transacao);
+        } else {
+            throw new IllegalArgumentException("Transação não encontrada para atualização de status.");
+        }
     }
 }
