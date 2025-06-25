@@ -154,19 +154,6 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
 
 ---
 
-### **Sincronização**
-
-- `POST /sincronizacao/manual`  
-  Sincroniza todas as contas assíncronas manualmente (somente ADMIN).
-
-- `POST /sincronizacao/manual/{id}`  
-  Sincroniza uma conta assíncrona específica pelo ID (somente ADMIN).
-
-- `POST /sincronizacao/me`  
-  Sincroniza a conta assíncrona do usuário autenticado.
-
----
-
 ### **Logs**
 
 - `GET /api/logs`  
@@ -241,14 +228,6 @@ Execute os testes automatizados com:
 ```bash
 ./mvnw test
 ```
-
----
-
-## **Estrutura do Projeto**
-
-- **Código principal**: [`src/main/java/com/example/asyncpayments/`](src/main/java/com/example/asyncpayments/)
-- **Configurações**: [`src/main/resources/application.properties`](src/main/resources/application.properties)
-- **Testes**: [`src/test/java/com/example/asyncpayments/`](src/test/java/com/example/asyncpayments/)
 
 ---
 
