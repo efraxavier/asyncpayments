@@ -42,10 +42,7 @@ public class ContaAssincrona extends Conta {
         }
     }
 
-    public void sincronizar() {
-        this.ultimaSincronizacao = OffsetDateTime.now(ZoneOffset.UTC);
-        this.bloqueada = false;
-    }
+
 
     public void bloquear() {
         this.bloqueada = true;

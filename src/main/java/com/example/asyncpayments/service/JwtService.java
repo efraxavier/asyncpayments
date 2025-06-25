@@ -8,11 +8,15 @@ import com.auth0.jwt.interfaces.JWTVerifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 
 @Service
 public class JwtService {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtService.class);
 
     @Value("${jwt.secret.key}")
     private String secretKey;
@@ -25,6 +29,7 @@ public class JwtService {
     }
 
     public String generateToken(UserDetails userDetails, Long userId) {
+        logger.info("[JWT] Gerando token para userId={}", userId);
         return JWT.create()
                 .withSubject(userDetails.getUsername())
                 .withClaim("id", userId)
@@ -34,12 +39,16 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
+        boolean valid = false;
         try {
             String username = extractUsername(token);
-            return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+            valid = username.equals(userDetails.getUsername()) && !isTokenExpired(token);
         } catch (JWTVerificationException e) {
+            logger.warn("[JWT] Token inválido: {}", e.getMessage());
             return false;
         }
+        logger.info("[JWT] Validação de token para user={} resultado={}", userDetails.getUsername(), valid);
+        return valid;
     }
 
     public String extractUsername(String token) {

@@ -38,7 +38,6 @@ class ContaAssincronaTest {
     void testSincronizarEBloquear() {
         ContaAssincrona conta = new ContaAssincrona();
         conta.setBloqueada(true);
-        conta.sincronizar();
         assertFalse(conta.isBloqueada());
         assertNotNull(conta.getUltimaSincronizacao());
 

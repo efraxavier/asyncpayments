@@ -25,11 +25,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/transacoes")
 @RequiredArgsConstructor
 public class TransacaoController {
+
+    private static final Logger logger = LoggerFactory.getLogger(TransacaoController.class);
 
     private final TransacaoService transacaoService;
     private final UserRepository userRepository;       
@@ -112,10 +116,15 @@ public class TransacaoController {
                     request.getGatewayPagamento(),
                     request.getDescricao()
             );
+            logger.info("[API][RESPONSE] Transação criada com sucesso: id={}, tipoOperacao={}", transacao.getId(), transacao.getTipoOperacao());
             return ResponseEntity.ok(transacao);
         } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.warn("[API][RESPONSE][4xx] Erro de negócio ao criar transação: tipoOperacao={}, origem={}, destino={}, valor={}, motivo={}",
+                request.getTipoOperacao(), request.getIdUsuarioOrigem(), request.getIdUsuarioDestino(), request.getValor(), e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
+            logger.error("[API][RESPONSE][5xx] Erro interno ao criar transação: tipoOperacao={}, origem={}, destino={}, valor={}, motivo={}",
+                request.getTipoOperacao(), request.getIdUsuarioOrigem(), request.getIdUsuarioDestino(), request.getValor(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("message", "Erro interno: " + e.getMessage()));
         }

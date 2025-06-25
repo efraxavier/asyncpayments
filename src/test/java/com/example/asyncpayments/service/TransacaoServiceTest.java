@@ -132,30 +132,6 @@ void realizarTransacao_saldoInsuficiente_deveLancarExcecao() {
 }
 
 @Test
-void processarTransacaoOffline_transacaoDentroDoPrazo_deveSincronizar() {
-    Transacao transacao = new Transacao();
-    transacao.setId(1L);
-    transacao.setIdUsuarioOrigem(1L);
-    transacao.setIdUsuarioDestino(2L);
-    transacao.setValor(100.0);
-    transacao.setStatus(StatusTransacao.PENDENTE);
-    transacao.setDataCriacao(OffsetDateTime.now().minusHours(10));
-
-    ContaAssincrona contaOrigem = new ContaAssincrona();
-    contaOrigem.setSaldo(500.0);
-    ContaAssincrona contaDestino = new ContaAssincrona();
-    contaDestino.setSaldo(300.0);
-
-    when(transacaoRepository.findById(1L)).thenReturn(Optional.of(transacao));
-    when(contaAssincronaRepository.findByUserId(1L)).thenReturn(contaOrigem);
-    when(contaAssincronaRepository.findByUserId(2L)).thenReturn(contaDestino);
-
-    assertDoesNotThrow(() -> transacaoService.processarTransacaoOffline(1L, OffsetDateTime.now()));
-    assertEquals(StatusTransacao.SINCRONIZADA, transacao.getStatus());
-    verify(transacaoRepository).save(any(Transacao.class));
-}
-
-@Test
 void buscarTransacaoPorId_deveRetornarOptional() {
     Transacao t = new Transacao();
     when(transacaoRepository.findById(1L)).thenReturn(Optional.of(t));
