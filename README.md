@@ -167,6 +167,36 @@ AsyncPayments é uma aplicação Java Spring Boot para gerenciamento de pagament
 
 ---
 
+### **Logs**
+
+- `GET /api/logs`  
+  (ADMIN) Visualiza todos os logs do sistema, incluindo logs de API, backend e frontend.
+
+---
+
+- **Sincronização:**  
+  - Só pode ser marcada como `SINCRONIZADA` se o saldo da conta assíncrona for igual ao valor enviado e a operação ocorrer dentro de 72h.
+  - Após sincronizar, o saldo da conta assíncrona é zerado e o valor transferido para a conta síncrona.
+  - Se não atender as condições, a transação é marcada como `ROLLBACK` e os saldos não são alterados.
+
+- **Transações offline:**  
+  - Só podem ser processadas até 72h após a criação.
+  - Limite de R$500,00 por transação offline.
+
+- **Limite diário:**  
+  - Máximo de R$1000,00 por usuário/dia para transações síncronas.
+
+- **Transações acima de R$10.000,00:**  
+  - Notificam o BACEN e são registradas em tabela especial.
+
+- **Rollback automático:**  
+  - Transações pendentes há mais de 72h são revertidas e o saldo devolvido.
+
+- **Logs:**  
+  - Todas as respostas de API relevantes são logadas e podem ser consultadas via endpoint.
+
+---
+
 ## **Configuração**
 
 ### **Banco de Dados**
@@ -227,5 +257,3 @@ Execute os testes automatizados com:
 Este projeto está sob a licença MIT.
 
 ---
-
-Para dúvidas ou contribuições, abra uma issue ou pull request!
