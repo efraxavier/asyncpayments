@@ -53,6 +53,7 @@ public class LogController {
              BufferedWriter bw = new BufferedWriter(fw)) {
             String[] lines = logs.split("\\r?\\n");
             for (String line : lines) {
+                System.out.println("[FRONT] " + line);
                 bw.write(LocalDateTime.now() + " " + FRONT_LOG_PREFIX + " " + line);
                 bw.newLine();
             }

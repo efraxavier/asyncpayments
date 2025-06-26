@@ -286,6 +286,25 @@ public class TransacaoService {
             throw new IllegalArgumentException("Conta não encontrada.");
         }
 
+        if (transacao.getNomeUsuarioOrigem() == null || transacao.getEmailUsuarioOrigem() == null) {
+            User origem = userRepository.findById(transacao.getIdUsuarioOrigem())
+                .orElse(null);
+            if (origem != null) {
+                transacao.setNomeUsuarioOrigem(origem.getNome());
+                transacao.setEmailUsuarioOrigem(origem.getEmail());
+                transacao.setCpfUsuarioOrigem(origem.getCpf());
+            }
+        }
+        if (transacao.getNomeUsuarioDestino() == null || transacao.getEmailUsuarioDestino() == null) {
+            User destino = userRepository.findById(transacao.getIdUsuarioDestino())
+                .orElse(null);
+            if (destino != null) {
+                transacao.setNomeUsuarioDestino(destino.getNome());
+                transacao.setEmailUsuarioDestino(destino.getEmail());
+                transacao.setCpfUsuarioDestino(destino.getCpf());
+            }
+        }
+
         // Validação de prazo
         OffsetDateTime dataCriacao = transacao.getDataCriacao();
         if (dataCriacao != null && java.time.Duration.between(dataCriacao, dataRecebida).toHours() > 72) {
